@@ -1,7 +1,10 @@
+import debugFactory from 'debug';
 import { Navigate } from 'react-router-dom';
 
 import { useCoreState } from '../providers/CoreStateProvider';
 import RouteLoadingScreen from './RouteLoadingScreen';
+
+const log = debugFactory('route:public');
 
 interface PublicRouteProps {
   children: React.ReactNode;
@@ -22,6 +25,7 @@ const PublicRoute = ({ children, redirectTo }: PublicRouteProps) => {
   // If user is logged in, always go to home.
   // Home itself will redirect to onboarding if needed.
   if (snapshot.sessionToken) {
+    log('redirecting to %s (sessionToken present on public route)', redirectTo || '/home');
     return <Navigate to={redirectTo || '/home'} replace />;
   }
 

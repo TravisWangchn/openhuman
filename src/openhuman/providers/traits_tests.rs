@@ -43,6 +43,7 @@ fn chat_response_helpers() {
     let empty = ChatResponse {
         text: None,
         tool_calls: vec![],
+        reasoning_content: None,
         usage: None,
     };
     assert!(!empty.has_tool_calls());
@@ -55,6 +56,7 @@ fn chat_response_helpers() {
             name: "shell".into(),
             arguments: "{}".into(),
         }],
+        reasoning_content: None,
         usage: None,
     };
     assert!(with_tools.has_tool_calls());

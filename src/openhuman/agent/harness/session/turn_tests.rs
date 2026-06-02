@@ -37,6 +37,7 @@ impl Provider for DummyProvider {
         Ok(ChatResponse {
             text: Some("unused".into()),
             tool_calls: vec![],
+            reasoning_content: None,
             usage: None,
         })
     }
@@ -360,12 +361,14 @@ async fn turn_runs_full_tool_cycle_with_context_and_hooks() {
                         .into(),
                 ),
                 tool_calls: vec![],
-                usage: None,
+                reasoning_content: None,
+            usage: None,
             }),
             Ok(ChatResponse {
                 text: Some("final answer".into()),
                 tool_calls: vec![],
-                usage: None,
+                reasoning_content: None,
+            usage: None,
             }),
         ]),
         requests: AsyncMutex::new(Vec::new()),
@@ -401,7 +404,7 @@ async fn turn_runs_full_tool_cycle_with_context_and_hooks() {
     assert!(agent.last_memory_context.as_deref() == Some("[Injected]\n"));
     assert!(agent.history.iter().any(|message| matches!(
         message,
-        ConversationMessage::AssistantToolCalls { text, tool_calls }
+        ConversationMessage::AssistantToolCalls { text, tool_calls, .. }
             if text.as_deref().is_some_and(|value| value.contains("preface")) && tool_calls.len() == 1
     )));
     assert!(agent.history.iter().any(|message| matches!(
@@ -447,6 +450,7 @@ async fn turn_uses_cached_transcript_prefix_on_first_iteration() {
         responses: AsyncMutex::new(vec![Ok(ChatResponse {
             text: Some("cached-final".into()),
             tool_calls: vec![],
+            reasoning_content: None,
             usage: None,
         })]),
         requests: AsyncMutex::new(Vec::new()),
@@ -486,6 +490,7 @@ async fn turn_errors_when_max_tool_iterations_are_exceeded() {
         responses: AsyncMutex::new(vec![Ok(ChatResponse {
             text: Some("<tool_call>{\"name\":\"echo\",\"arguments\":{}}</tool_call>".into()),
             tool_calls: vec![],
+            reasoning_content: None,
             usage: None,
         })]),
         requests: AsyncMutex::new(Vec::new()),

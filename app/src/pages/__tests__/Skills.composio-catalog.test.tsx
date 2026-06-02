@@ -44,31 +44,45 @@ describe('Skills page — Composio catalog fallback', () => {
     renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
 
     expect(screen.getByRole('heading', { name: 'Integrations' })).toBeInTheDocument();
-    expect(screen.getByText('Discord')).toBeInTheDocument();
-    expect(screen.getByText('Google Calendar')).toBeInTheDocument();
-    expect(screen.getByText('Google Drive')).toBeInTheDocument();
-    expect(screen.getByText('Gmail')).toBeInTheDocument();
-    expect(screen.getByText('Google Sheets')).toBeInTheDocument();
-    expect(screen.getByText('Facebook')).toBeInTheDocument();
-    expect(screen.getByText('GitHub')).toBeInTheDocument();
-    expect(screen.getByText('Instagram')).toBeInTheDocument();
-    expect(screen.getByText('Linear')).toBeInTheDocument();
-    expect(screen.getByText('Reddit')).toBeInTheDocument();
-    expect(screen.getByText('Slack')).toBeInTheDocument();
-    expect(screen.getByText('Supabase')).toBeInTheDocument();
-    // Scope to the Integrations section so the assertion still catches a
-    // missing Composio Zoom tile even though the Meeting bots card also
-    // renders a "Zoom" entry on the same page.
+    expect(screen.getByText('微博')).toBeInTheDocument();
+    expect(screen.getByText('小红书')).toBeInTheDocument();
+    expect(screen.getByText('抖音')).toBeInTheDocument();
+    expect(screen.getByText('快手')).toBeInTheDocument();
+    expect(screen.getByText('B站')).toBeInTheDocument();
+    expect(screen.getByText('知乎')).toBeInTheDocument();
+    expect(screen.getByText('阿里云')).toBeInTheDocument();
+    expect(screen.getByText('百度 AI')).toBeInTheDocument();
+    expect(screen.getByText('支付宝')).toBeInTheDocument();
     const integrationsSection = screen
       .getByRole('heading', { name: 'Integrations' })
       .closest('.rounded-2xl');
     expect(integrationsSection).not.toBeNull();
-    expect(within(integrationsSection as HTMLElement).getByText('Zoom')).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Other' })).not.toBeInTheDocument();
+    expect(within(integrationsSection as HTMLElement).getByText('码云 Gitee')).toBeInTheDocument();
   });
 
-  it('shows a stale/error state instead of disconnected toolkits when composio loading fails', () => {
+  it('shows disconnected tiles (not error state) when composio backend is unreachable and toolkit list is empty', () => {
     composioError = 'Backend unavailable';
+    composioToolkits = [];
+
+    renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
+
+    // Error banner should NOT appear when using fallback catalog (no real toolkits)
+    expect(screen.queryByText('Connections are showing stale status')).not.toBeInTheDocument();
+
+    const integrationsSection = screen
+      .getByRole('heading', { name: 'Integrations' })
+      .closest('.rounded-2xl');
+    expect(integrationsSection).not.toBeNull();
+    // Tiles show as disconnected with "Connect" CTA, not "Status unavailable"
+    const weiboTile = within(integrationsSection as HTMLElement).getByRole('button', {
+      name: /^微博,.*Connect\./i,
+    });
+    expect(weiboTile).toBeInTheDocument();
+  });
+
+  it('shows error state when composio fails after returning real toolkits', () => {
+    composioError = 'Backend unavailable';
+    composioToolkits = ['weibo'];
 
     renderWithProviders(<Skills />, { initialEntries: ['/skills'] });
 
@@ -79,11 +93,10 @@ describe('Skills page — Composio catalog fallback', () => {
       .getByRole('heading', { name: 'Integrations' })
       .closest('.rounded-2xl');
     expect(integrationsSection).not.toBeNull();
-    const gmailTile = within(integrationsSection as HTMLElement).getByRole('button', {
-      name: /Gmail.*Status unavailable/i,
+    const weiboTile = within(integrationsSection as HTMLElement).getByRole('button', {
+      name: /^微博,.*Status unavailable/i,
     });
-    expect(gmailTile).toBeInTheDocument();
-    expect(within(gmailTile).getByText('Status unavailable')).toBeInTheDocument();
+    expect(weiboTile).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Retry' })[0]);
     expect(composioRefresh).toHaveBeenCalledTimes(1);

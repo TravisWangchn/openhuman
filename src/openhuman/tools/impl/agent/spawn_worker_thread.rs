@@ -307,6 +307,7 @@ mod tests {
             Ok(crate::openhuman::providers::ChatResponse {
                 text: Some("done".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             })
         }

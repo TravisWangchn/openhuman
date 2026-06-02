@@ -4,24 +4,24 @@ import { composioToolkitMeta, KNOWN_COMPOSIO_TOOLKITS } from './toolkitMeta';
 
 describe('composioToolkitMeta', () => {
   it('ships the full Composio managed-auth catalog fallback', () => {
-    expect(KNOWN_COMPOSIO_TOOLKITS).toHaveLength(118);
-    expect(KNOWN_COMPOSIO_TOOLKITS).toContain('gmail');
-    expect(KNOWN_COMPOSIO_TOOLKITS).toContain('discord');
-    expect(KNOWN_COMPOSIO_TOOLKITS).toContain('supabase');
-    expect(KNOWN_COMPOSIO_TOOLKITS).toContain('zoom');
+    expect(KNOWN_COMPOSIO_TOOLKITS).toHaveLength(34);
+    expect(KNOWN_COMPOSIO_TOOLKITS).toContain('weibo');
+    expect(KNOWN_COMPOSIO_TOOLKITS).toContain('douyin');
+    expect(KNOWN_COMPOSIO_TOOLKITS).toContain('alipay');
+    expect(KNOWN_COMPOSIO_TOOLKITS).toContain('gitee');
   });
 
   it('preserves canonical names for managed-auth toolkits and renders logo URLs', () => {
-    const gmail = composioToolkitMeta('gmail');
-    const calendar = composioToolkitMeta('google_calendar');
+    const douyin = composioToolkitMeta('douyin');
+    const alipay = composioToolkitMeta('alipay');
 
-    expect(gmail.name).toBe('Gmail');
-    expect(gmail.logoUrl).toContain('/gmail');
-    expect(gmail.permissionLabel).toBe('Docs, files, tasks, and workspace data');
+    expect(douyin.name).toBe('抖音');
+    expect(douyin.logoUrl).toContain('/douyin');
+    expect(douyin.permissionLabel).toBe('内容、个人资料和社交数据');
 
-    expect(calendar.slug).toBe('googlecalendar');
-    expect(calendar.name).toBe('Google Calendar');
-    expect(calendar.logoUrl).toContain('/googlecalendar');
+    expect(alipay.slug).toBe('alipay');
+    expect(alipay.name).toBe('支付宝');
+    expect(alipay.logoUrl).toContain('/alipay');
   });
 
   it('falls back cleanly for unknown slugs', () => {

@@ -247,6 +247,13 @@ pub struct Config {
     #[serde(default)]
     pub meet: MeetConfig,
 
+    /// OpenHuman-ZN: Chinese LLM provider configuration (DeepSeek, Doubao,
+    /// Qwen, Moonshot). When `Some`, the China-model router is active and
+    /// inference uses these providers directly (no VPN required).
+    #[serde(default)]
+    #[schemars(skip)]
+    pub china_models: Option<crate::openhuman::config::china_models::ChinaModelsConfig>,
+
     /// Whether the user has completed the **React UI** onboarding flow.
     ///
     /// Set by `OnboardingOverlay.tsx::handleDone` and the multi-step
@@ -444,6 +451,7 @@ impl Default for Config {
             update: UpdateConfig::default(),
             dictation: DictationConfig::default(),
             meet: MeetConfig::default(),
+            china_models: None,
             onboarding_completed: false,
             chat_onboarding_completed: false,
         }

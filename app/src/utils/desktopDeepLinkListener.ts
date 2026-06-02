@@ -9,7 +9,7 @@ import {
   completeDeepLinkAuthProcessing,
   failDeepLinkAuthProcessing,
 } from '../store/deepLinkAuthState';
-import { BILLING_DASHBOARD_URL } from './links';
+import { DEEPSEEK_TOPUP_URL } from './links';
 import { evaluateOAuthAppVersionGate } from './oauthAppVersionGate';
 import { openUrl } from './openUrl';
 import { storeSession } from './tauriCommands';
@@ -165,12 +165,12 @@ const handlePaymentDeepLink = async (parsed: URL) => {
     // payment completion events.
     window.dispatchEvent(new CustomEvent('payment:success', { detail: { sessionId } }));
 
-    await openUrl(BILLING_DASHBOARD_URL);
+    await openUrl(DEEPSEEK_TOPUP_URL);
     window.location.hash = '/home';
   } else if (path === 'cancel') {
     console.log('[DeepLink] Payment cancelled');
     window.dispatchEvent(new CustomEvent('payment:cancel', {}));
-    await openUrl(BILLING_DASHBOARD_URL);
+    await openUrl(DEEPSEEK_TOPUP_URL);
     window.location.hash = '/home';
   } else {
     console.warn('[DeepLink] Unknown payment path:', path);

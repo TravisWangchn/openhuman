@@ -136,6 +136,16 @@ describe('sanitizeAuthError', () => {
     expect(sanitizeAuthError(undefined)).toBe('Something went wrong.');
   });
 
+  it('returns a friendly message for missing backend session token errors', () => {
+    const err = new Error(
+      'composio backend mode unavailable: no backend session token. Sign in first (auth_store_session).'
+    );
+    const result = sanitizeAuthError(err);
+    expect(result).toContain('not currently available');
+    expect(result).not.toContain('backend session token');
+    expect(result).not.toContain('auth_store_session');
+  });
+
   it('handles non-Error thrown values', () => {
     const result = sanitizeAuthError('plain string error');
     expect(typeof result).toBe('string');

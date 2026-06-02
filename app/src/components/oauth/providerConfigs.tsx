@@ -51,7 +51,7 @@ export const oauthProviderConfigs: OAuthProviderConfig[] = [
     color: 'bg-white border border-gray-200',
     hoverColor: 'hover:bg-gray-50 hover:border-gray-300',
     textColor: 'text-gray-900',
-    showOnWelcome: true,
+    showOnWelcome: false,
   },
   {
     id: 'github',
@@ -60,7 +60,7 @@ export const oauthProviderConfigs: OAuthProviderConfig[] = [
     color: 'bg-white border border-gray-200',
     hoverColor: 'hover:bg-gray-50 hover:border-gray-300',
     textColor: 'text-gray-900',
-    showOnWelcome: true,
+    showOnWelcome: false,
   },
   {
     id: 'twitter',

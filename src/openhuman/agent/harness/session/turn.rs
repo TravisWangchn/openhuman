@@ -642,6 +642,8 @@ impl Agent {
                     let _ = handle.await;
                 }
 
+                let reasoning_content = response.reasoning_content.clone();
+
                 let (text, calls) = self.tool_dispatcher.parse_response(&response);
                 let calls = Self::with_fallback_tool_call_ids(calls, iteration);
                 log::info!(
@@ -676,17 +678,20 @@ impl Agent {
                     })
                     .await;
 
+                    let final_msg = if let Some(ref rc) = reasoning_content {
+                        ChatMessage::assistant_with_reasoning(final_text.clone(), rc.clone())
+                    } else {
+                        ChatMessage::assistant(final_text.clone())
+                    };
                     self.history
-                        .push(ConversationMessage::Chat(ChatMessage::assistant(
-                            final_text.clone(),
-                        )));
+                        .push(ConversationMessage::Chat(final_msg.clone()));
                     self.trim_history();
 
                     // Mirror the final assistant reply into the transcript
                     // snapshot so the JSONL persisted below captures the
                     // response (not just the prompt that was sent).
                     if let Some(ref mut msgs) = last_provider_messages {
-                        msgs.push(ChatMessage::assistant(final_text.clone()));
+                        msgs.push(final_msg);
                     }
 
                     // Persist the transcript **now** — right after the
@@ -749,10 +754,12 @@ impl Agent {
                     // `agent.history()` after each turn, sub-agents and
                     // library consumers get whatever they need through
                     // the returned value / history accessors).
-                    self.history
-                        .push(ConversationMessage::Chat(ChatMessage::assistant(
-                            text.clone(),
-                        )));
+                    let pre_tool_msg = if let Some(ref rc) = reasoning_content {
+                        ChatMessage::assistant_with_reasoning(text.clone(), rc.clone())
+                    } else {
+                        ChatMessage::assistant(text.clone())
+                    };
+                    self.history.push(ConversationMessage::Chat(pre_tool_msg));
                 }
                 let tool_names: Vec<&str> = calls.iter().map(|call| call.name.as_str()).collect();
                 log::info!(
@@ -780,6 +787,7 @@ impl Agent {
                         Some(text.clone())
                     },
                     tool_calls: persisted_tool_calls,
+                    reasoning_content,
                 });
 
                 // Persist the transcript **right after** the provider

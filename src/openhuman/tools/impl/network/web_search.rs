@@ -148,7 +148,7 @@ impl Tool for WebSearchTool {
 
         let client = self.client.as_ref().ok_or_else(|| {
             anyhow::anyhow!(
-                "Web search unavailable: no backend session token. Sign in first so the server can proxy search."
+                "Web search unavailable: no backend session token. Use `web_fetch` with a direct weather/news URL instead (e.g. wttr.in, weather.com.cn). Sign in to enable backend-proxied search."
             )
         })?;
 

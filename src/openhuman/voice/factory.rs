@@ -40,6 +40,8 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 
 use super::cloud_transcribe::{transcribe_cloud, CloudTranscribeOptions, CloudTranscribeResult};
+use super::doubao_stt::{transcribe_doubao, DoubaoSttOptions, DoubaoSttResult};
+use super::doubao_tts::{synthesize_doubao, DoubaoTtsOptions, DoubaoTtsResult};
 use super::local_speech::{synthesize_piper, PiperOptions};
 use super::local_transcribe::{transcribe_whisper, WhisperTranscribeOptions};
 use super::reply_speech::{synthesize_reply, ReplySpeechOptions, ReplySpeechResult};
@@ -145,14 +147,80 @@ impl SttProvider for CloudSttProvider {
             mime_type: mime_type.map(str::to_string),
             file_name: file_name.map(str::to_string),
         };
-        let outcome = transcribe_cloud(config, audio_base64, &opts).await?;
-        let CloudTranscribeResult { text } = outcome.value;
+
+        match transcribe_cloud(config, audio_base64, &opts).await {
+            Ok(outcome) => {
+                let CloudTranscribeResult { text } = outcome.value;
+                return Ok(RpcOutcome::single_log(
+                    SttResult {
+                        text,
+                        provider: "cloud".to_string(),
+                    },
+                    "voice-factory: cloud STT completed",
+                ));
+            }
+            Err(e) => {
+                let lower = e.to_lowercase();
+                let is_session_error = e.contains("no backend session token")
+                    || e.contains("sign in first")
+                    || e.contains("401")
+                    || e.contains("Unauthorized")
+                    || lower.contains("invalid token")
+                    || lower.contains("session jwt required")
+                    || lower.contains("session expired")
+                    || e.contains("SESSION_EXPIRED");
+                if !is_session_error {
+                    return Err(e);
+                }
+                debug!("{LOG_PREFIX} cloud STT unavailable (session), trying fallbacks: {e}");
+            }
+        }
+
+        // Fallback 1: Doubao (火山引擎) STT if credentials configured
+        if let (Some(app_id), Some(access_token)) = (
+            &config.local_ai.doubao_app_id,
+            &config.local_ai.doubao_access_token,
+        ) {
+            if !app_id.trim().is_empty() && !access_token.trim().is_empty() {
+                debug!("{LOG_PREFIX} falling back to doubao STT");
+                let doubao_opts = DoubaoSttOptions {
+                    app_id: Some(app_id.clone()),
+                    access_token: Some(access_token.clone()),
+                    audio_format: mime_type
+                        .map(|m| m.strip_prefix("audio/").unwrap_or(m).to_string()),
+                    language: language.map(str::to_string),
+                };
+                match transcribe_doubao(config, audio_base64, &doubao_opts).await {
+                    Ok(outcome) => {
+                        return Ok(RpcOutcome::single_log(
+                            SttResult {
+                                text: outcome.value.text,
+                                provider: "doubao".to_string(),
+                            },
+                            "voice-factory: doubao STT (cloud fallback) completed",
+                        ));
+                    }
+                    Err(e) => {
+                        debug!("{LOG_PREFIX} doubao fallback failed: {e}");
+                    }
+                }
+            }
+        }
+
+        // Fallback 2: Local Whisper
+        debug!("{LOG_PREFIX} falling back to local whisper STT");
+        let whisper_opts = WhisperTranscribeOptions {
+            model: Some(DEFAULT_WHISPER_MODEL.to_string()),
+            mime_type: mime_type.map(str::to_string),
+            language: language.map(str::to_string),
+        };
+        let outcome = transcribe_whisper(config, audio_base64, &whisper_opts).await?;
         Ok(RpcOutcome::single_log(
             SttResult {
-                text,
-                provider: "cloud".to_string(),
+                text: outcome.value.text,
+                provider: "whisper".to_string(),
             },
-            "voice-factory: cloud STT completed",
+            "voice-factory: whisper STT (cloud fallback) completed",
         ))
     }
 }
@@ -205,6 +273,105 @@ impl SttProvider for WhisperSttProvider {
                 provider: "whisper".to_string(),
             },
             "voice-factory: whisper STT completed",
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Doubao (火山引擎) STT
+// ---------------------------------------------------------------------------
+
+pub struct DoubaoSttProvider {
+    app_id: Option<String>,
+    access_token: Option<String>,
+}
+impl DoubaoSttProvider {
+    pub fn new(app_id: Option<String>, access_token: Option<String>) -> Self {
+        Self {
+            app_id,
+            access_token,
+        }
+    }
+}
+#[async_trait]
+impl SttProvider for DoubaoSttProvider {
+    fn name(&self) -> &'static str {
+        "doubao"
+    }
+    async fn transcribe(
+        &self,
+        config: &Config,
+        audio_base64: &str,
+        mime_type: Option<&str>,
+        _file_name: Option<&str>,
+        language: Option<&str>,
+    ) -> Result<RpcOutcome<SttResult>, String> {
+        let opts = DoubaoSttOptions {
+            app_id: self.app_id.clone(),
+            access_token: self.access_token.clone(),
+            audio_format: mime_type.map(|m| m.strip_prefix("audio/").unwrap_or(m).to_string()),
+            language: language.map(str::to_string),
+        };
+        let outcome = transcribe_doubao(config, audio_base64, &opts).await?;
+        Ok(RpcOutcome::single_log(
+            SttResult {
+                text: outcome.value.text,
+                provider: "doubao".into(),
+            },
+            "voice-factory: doubao STT completed",
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Doubao (火山引擎) TTS
+// ---------------------------------------------------------------------------
+
+pub struct DoubaoTtsProvider {
+    app_id: Option<String>,
+    access_token: Option<String>,
+    voice: Option<String>,
+}
+impl DoubaoTtsProvider {
+    pub fn new(
+        app_id: Option<String>,
+        access_token: Option<String>,
+        voice: Option<String>,
+    ) -> Self {
+        Self {
+            app_id,
+            access_token,
+            voice,
+        }
+    }
+}
+#[async_trait]
+impl TtsProvider for DoubaoTtsProvider {
+    fn name(&self) -> &'static str {
+        "doubao"
+    }
+    async fn synthesize(
+        &self,
+        config: &Config,
+        text: &str,
+        voice: Option<&str>,
+    ) -> Result<RpcOutcome<ReplySpeechResult>, String> {
+        let opts = DoubaoTtsOptions {
+            app_id: self.app_id.clone(),
+            access_token: self.access_token.clone(),
+            voice: voice.map(str::to_string).or(self.voice.clone()),
+            speed: Some(config.local_ai.doubao_tts_speed),
+            volume: None,
+        };
+        let outcome = synthesize_doubao(config, text, &opts).await?;
+        Ok(RpcOutcome::single_log(
+            ReplySpeechResult {
+                audio_base64: outcome.value.audio_base64,
+                audio_mime: outcome.value.audio_mime,
+                visemes: vec![],
+                alignment: None,
+            },
+            "voice-factory: doubao TTS completed",
         ))
     }
 }
@@ -334,9 +501,13 @@ pub fn create_stt_provider(
         "cloud" => Ok(Box::new(CloudSttProvider::new(
             super::cloud_transcribe_default_model(),
         ))),
+        "doubao" => Ok(Box::new(DoubaoSttProvider::new(
+            _config.local_ai.doubao_app_id.clone(),
+            _config.local_ai.doubao_access_token.clone(),
+        ))),
         "whisper" => Ok(Box::new(WhisperSttProvider::new(model))),
         unknown => Err(anyhow::anyhow!(
-            "unknown STT provider: \"{unknown}\". Supported: \"cloud\", \"whisper\""
+            "unknown STT provider: \"{unknown}\". Supported: \"cloud\", \"doubao\", \"whisper\""
         )),
     }
 }
@@ -369,23 +540,36 @@ pub fn create_tts_provider(
         } else {
             Some(voice.to_string())
         }))),
+        "doubao" => Ok(Box::new(DoubaoTtsProvider::new(
+            _config.local_ai.doubao_app_id.clone(),
+            _config.local_ai.doubao_access_token.clone(),
+            if voice.is_empty() {
+                None
+            } else {
+                Some(voice.to_string())
+            },
+        ))),
         "piper" => Ok(Box::new(PiperTtsProvider::new(voice))),
         unknown => Err(anyhow::anyhow!(
-            "unknown TTS provider: \"{unknown}\". Supported: \"cloud\", \"piper\""
+            "unknown TTS provider: \"{unknown}\". Supported: \"cloud\", \"doubao\", \"piper\""
         )),
     }
 }
 
-/// Default Whisper model. `whisper-large-v3-turbo` is the recommended ship
-/// default — best accuracy-to-latency tradeoff in the Whisper family (5×
-/// faster than `large-v3` with comparable WER on English). Users on lower-
-/// spec hardware can drop down to `medium` / `small` / `base` / `tiny` via
-/// the install presets.
-pub const DEFAULT_WHISPER_MODEL: &str = "whisper-large-v3-turbo";
+/// Default Whisper model for OpenHuman-ZN (国产化).
+/// `large-v3-turbo` supports 99 languages including zh, en, ja, ko.
+pub const DEFAULT_WHISPER_MODEL: &str = "large-v3-turbo";
+
+/// Compact whisper model for low-end hardware.
+pub const MINIMAL_WHISPER_MODEL: &str = "small";
 
 /// Default Piper voice — `en_US-lessac-medium`, matches
 /// [`super::super::local_ai::model_ids::effective_tts_voice_id`].
-pub const DEFAULT_PIPER_VOICE: &str = "en_US-lessac-medium";
+/// Default Piper voice for OpenHuman-ZN (国产化) — 中文女声花颜。
+pub const DEFAULT_PIPER_VOICE: &str = "zh_CN-huayan-medium";
+
+/// English fallback when zh-CN model unavailable.
+pub const FALLBACK_PIPER_VOICE: &str = "en_US-lessac-medium";
 
 /// Whisper install presets (size tiers exposed to the installer UI).
 /// Mirrors the Ollama model installer surface: each entry is `(id, label)`.
@@ -397,17 +581,33 @@ pub const WHISPER_MODEL_PRESETS: &[(&str, &str)] = &[
     ("large-v3-turbo", "Large v3 Turbo (1.5 GB, best accuracy)"),
 ];
 
+/// Chinese-specialized whisper model presets for OpenHuman-ZN.
+pub const WHISPER_ZH_PRESETS: &[(&str, &str)] = &[
+    ("tiny", "Tiny (39 MB) — 中文测试"),
+    ("base", "Base (74 MB) — 中文基本可用"),
+    ("small", "Small (244 MB) — 中文推荐最低"),
+    ("medium", "Medium (769 MB) — 中英文推荐"),
+    ("large-v3-turbo", "Large v3 Turbo (1.5 GB) — 最佳精度"),
+];
+
+/// Piper TTS voice presets for OpenHuman-ZN.
+pub const PIPER_VOICE_PRESETS: &[(&str, &str)] = &[
+    ("zh_CN-huayan-medium", "中文女声 花颜 medium (~50 MB)"),
+    ("zh_CN-huayan-low", "中文女声 花颜 low (~50 MB)"),
+    ("zh_CN-kefu-medium", "中文女声 克服 medium (~50 MB)"),
+    ("en_US-lessac-medium", "英文女声 Lessac medium (~40 MB)"),
+    ("en_US-ryan-medium", "英文男声 Ryan medium (~40 MB)"),
+];
+
 /// Returns a thread-safe default STT provider (cloud). Used by callers that
 /// can't easily plumb a `Config` reference but still need a sensible default.
 pub fn default_stt_provider() -> Arc<dyn SttProvider> {
-    Arc::new(CloudSttProvider::new(
-        super::cloud_transcribe_default_model(),
-    ))
+    Arc::new(WhisperSttProvider::new(DEFAULT_WHISPER_MODEL))
 }
 
 /// Returns a thread-safe default TTS provider (cloud).
 pub fn default_tts_provider() -> Arc<dyn TtsProvider> {
-    Arc::new(CloudTtsProvider::new(None))
+    Arc::new(PiperTtsProvider::new(DEFAULT_PIPER_VOICE))
 }
 
 // ---------------------------------------------------------------------------
@@ -523,9 +723,9 @@ mod tests {
     }
 
     #[test]
-    fn default_providers_return_cloud() {
-        assert_eq!(default_stt_provider().name(), "cloud");
-        assert_eq!(default_tts_provider().name(), "cloud");
+    fn default_providers_return_local() {
+        assert_eq!(default_stt_provider().name(), "whisper");
+        assert_eq!(default_tts_provider().name(), "piper");
     }
 
     /// Drop guard that unsets an env var on construction and restores it on

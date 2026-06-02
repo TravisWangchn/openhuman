@@ -1,2 +1,2 @@
 export const DISCORD_INVITE_URL = 'https://discord.tinyhumans.ai';
-export const BILLING_DASHBOARD_URL = 'https://tinyhumans.ai/dashboard';
+export const DEEPSEEK_TOPUP_URL = 'https://platform.deepseek.com/top_up';

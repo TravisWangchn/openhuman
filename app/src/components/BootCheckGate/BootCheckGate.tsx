@@ -22,6 +22,7 @@ import {
 } from '../../services/coreRpcClient';
 import { type CoreMode, resetCoreMode, setCoreMode } from '../../store/coreModeSlice';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { CORE_RPC_TOKEN, CORE_RPC_URL } from '../../utils/config';
 import {
   clearStoredCoreMode,
   clearStoredCoreToken,
@@ -101,8 +102,8 @@ function ModePicker({ onConfirm }: PickerProps) {
   // the render path below.
   const isDesktop = isTauri();
   const [selected, setSelected] = useState<'local' | 'cloud'>(isDesktop ? 'local' : 'cloud');
-  const [cloudUrl, setCloudUrl] = useState('');
-  const [cloudToken, setCloudToken] = useState('');
+  const [cloudUrl, setCloudUrl] = useState(isDesktop ? '' : CORE_RPC_URL || '');
+  const [cloudToken, setCloudToken] = useState(isDesktop ? '' : CORE_RPC_TOKEN || '');
   const [urlError, setUrlError] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [testStatus, setTestStatus] = useState<TestStatus>({ kind: 'idle' });
@@ -403,7 +404,20 @@ function ResultScreen({
           {result.reason || t('bootCheck.cannotReachDesc')}
         </p>
         {actionError && <p className="mt-3 text-xs text-red-600 font-medium">{actionError}</p>}
+        {result.isLocalhostCloudUrl && (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            {t('bootCheck.localhostCloudSuggestion')}
+          </div>
+        )}
         <div className="mt-5 flex gap-3">
+          {result.isLocalhostCloudUrl && isTauri() && (
+            <button
+              type="button"
+              onClick={onSwitchMode}
+              className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600">
+              {t('bootCheck.switchToLocal')}
+            </button>
+          )}
           <button
             type="button"
             onClick={onRetry}

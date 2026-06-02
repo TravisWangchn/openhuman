@@ -12,7 +12,18 @@ function makeSnapshot(overrides: Partial<CoreAppSnapshot> = {}): CoreAppSnapshot
     analyticsEnabled: false,
     meetAutoOrchestratorHandoff: false,
     localState: { encryptionKey: null, onboardingTasks: null },
-    runtime: { screenIntelligence: null, localAi: null, autocomplete: null, service: null },
+    runtime: {
+      screenIntelligence: null,
+      localAi: null,
+      autocomplete: null,
+      service: null,
+      chinaRouting: {
+        configured: false,
+        activeProviders: [],
+        primaryModel: '',
+        autoFallback: false,
+      },
+    },
     ...overrides,
   };
 }

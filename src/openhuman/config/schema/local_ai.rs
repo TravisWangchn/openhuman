@@ -110,6 +110,18 @@ pub struct LocalAiConfig {
     /// Optional path to a manually-installed Ollama binary.
     #[serde(default)]
     pub ollama_binary_path: Option<String>,
+    /// 火山引擎（豆包）Access Key ID — 语音识别/合成
+    #[serde(default)]
+    pub doubao_app_id: Option<String>,
+    /// 火山引擎（豆包）Access Token — IAM/STS token
+    #[serde(default)]
+    pub doubao_access_token: Option<String>,
+    /// 火山引擎 TTS 音色 ID (默认 BV001_streaming 通用女声)
+    #[serde(default = "default_doubao_voice")]
+    pub doubao_voice: String,
+    /// 火山引擎 TTS 语速 (0.5-2.0)
+    #[serde(default = "default_doubao_speed")]
+    pub doubao_tts_speed: f32,
     /// When true, load the whisper model in-process via whisper-rs instead of
     /// shelling out to whisper-cli for each transcription call.
     #[serde(default = "default_whisper_in_process")]
@@ -161,11 +173,19 @@ fn default_tts_voice_id() -> String {
 }
 
 fn default_stt_provider() -> String {
-    "cloud".to_string()
+    "whisper".to_string()
 }
 
 fn default_tts_provider() -> String {
-    "cloud".to_string()
+    "piper".to_string()
+}
+
+fn default_doubao_voice() -> String {
+    "BV001_streaming".to_string()
+}
+
+fn default_doubao_speed() -> f32 {
+    1.0
 }
 
 fn default_stt_download_url() -> Option<String> {
@@ -288,6 +308,10 @@ impl Default for LocalAiConfig {
             selected_tier: None,
             opt_in_confirmed: false,
             ollama_binary_path: None,
+            doubao_app_id: None,
+            doubao_access_token: None,
+            doubao_voice: default_doubao_voice(),
+            doubao_tts_speed: default_doubao_speed(),
             whisper_in_process: default_whisper_in_process(),
             voice_llm_cleanup_enabled: default_voice_llm_cleanup_enabled(),
             usage: LocalAiUsage::default(),

@@ -26,6 +26,11 @@ const initialState: ChannelConnectionsState = {
     telegram: makeEmptyChannelModes(),
     discord: makeEmptyChannelModes(),
     web: makeEmptyChannelModes(),
+    wechat: makeEmptyChannelModes(),
+    dingtalk: makeEmptyChannelModes(),
+    feishu: makeEmptyChannelModes(),
+    qq: makeEmptyChannelModes(),
+    wecom: makeEmptyChannelModes(),
   },
 };
 
@@ -55,6 +60,11 @@ const channelConnectionsSlice = createSlice({
       state.connections.telegram = makeEmptyChannelModes();
       state.connections.discord = makeEmptyChannelModes();
       state.connections.web = makeEmptyChannelModes();
+      state.connections.wechat = makeEmptyChannelModes();
+      state.connections.dingtalk = makeEmptyChannelModes();
+      state.connections.feishu = makeEmptyChannelModes();
+      state.connections.qq = makeEmptyChannelModes();
+      state.connections.wecom = makeEmptyChannelModes();
       state.defaultMessagingChannel = 'telegram';
       state.migrationCompleted = true;
       state.schemaVersion = SCHEMA_VERSION;

@@ -1072,23 +1072,24 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 id,
                 maskedKey: maskKeyLabel(apiKey ? true : next.maskedKey.startsWith('••••')),
               };
-              // Persist the credential BEFORE mutating draft, so a key-write
-              // failure doesn't leave the config referencing a provider with
-              // no stored key.
+              // Add provider to the config immediately so the user isn't
+              // blocked if key persistence fails (e.g. core unreachable).
+              const list =
+                editing === 'new'
+                  ? [...draft.cloudProviders, upserted]
+                  : draft.cloudProviders.map(p => (p.id === editing.id ? upserted : p));
+              setDraft({ ...draft, cloudProviders: list });
+              // Persist the key while the editor is still mounted so the
+              // child's saveError can surface any failure to the user.
               if (apiKey && upserted.slug !== 'openhuman') {
                 try {
                   await setCloudProviderKey(upserted.slug, apiKey);
                 } catch (err) {
                   const msg = err instanceof Error ? err.message : String(err);
                   console.warn('[ai-settings] setCloudProviderKey failed', msg);
-                  return;
+                  throw err;
                 }
               }
-              const list =
-                editing === 'new'
-                  ? [...draft.cloudProviders, upserted]
-                  : draft.cloudProviders.map(p => (p.id === editing.id ? upserted : p));
-              setDraft({ ...draft, cloudProviders: list });
               setEditing(null);
             } finally {
               setBusyAction(null);
@@ -1153,18 +1154,20 @@ const AIPanel = ({ embedded = false }: AIPanelProps = {}) => {
                 authStyle: authStyleForSlug(slug),
                 maskedKey: maskKeyLabel(true),
               };
-              // Persist the credential BEFORE mutating draft, so a key-write
-              // failure can't leave config + secrets out of sync.
+              // Add provider to the config immediately so the user isn't
+              // blocked if key persistence fails (e.g. core unreachable).
+              setDraft({ ...draft, cloudProviders: [...draft.cloudProviders, upserted] });
+              // Persist the key while the dialog is still mounted so its
+              // handleSave can surface any failure to the user.
               if (!isLocalRuntime && slug !== 'openhuman') {
                 try {
                   await setCloudProviderKey(slug, apiKey);
                 } catch (err) {
                   const msg = err instanceof Error ? err.message : String(err);
                   console.warn('[ai-settings] setCloudProviderKey failed', msg);
-                  return;
+                  throw err;
                 }
               }
-              setDraft({ ...draft, cloudProviders: [...draft.cloudProviders, upserted] });
               setKeyDialogFor(null);
               setPendingLocalLabel(null);
             } finally {
@@ -1207,6 +1210,7 @@ const CloudProviderEditor = ({
   const [endpoint, setEndpoint] = useState(initial?.endpoint ?? defaultEndpointFor(defaultSlug));
   const [apiKey, setApiKey] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const isOpenHuman = slug === 'openhuman';
   const hasExistingKey = (initial?.maskedKey ?? '').startsWith('••••');
 
@@ -1235,6 +1239,7 @@ const CloudProviderEditor = ({
                 if (!initial) {
                   setEndpoint(defaultEndpointFor(next));
                 }
+                setSaveError(null);
               }}
               disabled={!!initial}
               className="mt-1 w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 disabled:opacity-60 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-200">
@@ -1292,6 +1297,11 @@ const CloudProviderEditor = ({
             </div>
           )}
         </div>
+        {saveError && (
+          <div className="border-t border-coral-200 bg-coral-50 px-4 py-2.5">
+            <p className="text-xs text-coral-700">{saveError}</p>
+          </div>
+        )}
         <div className="flex items-center justify-end gap-2 border-t border-stone-200 px-4 py-3">
           <button
             onClick={onClose}
@@ -1302,6 +1312,7 @@ const CloudProviderEditor = ({
           <button
             onClick={async () => {
               setSaving(true);
+              setSaveError(null);
               try {
                 await onSubmit(
                   {
@@ -1314,6 +1325,8 @@ const CloudProviderEditor = ({
                   },
                   apiKey.trim()
                 );
+              } catch (err) {
+                setSaveError(err instanceof Error ? err.message : String(err));
               } finally {
                 setSaving(false);
               }

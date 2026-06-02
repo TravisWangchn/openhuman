@@ -19,11 +19,19 @@ export interface CoreLocalState {
   onboardingTasks: CoreOnboardingTasks | null;
 }
 
+export interface ChinaRoutingStatus {
+  configured: boolean;
+  activeProviders: string[];
+  primaryModel: string;
+  autoFallback: boolean;
+}
+
 export interface CoreRuntimeSnapshot {
   screenIntelligence: AccessibilityStatus | null;
   localAi: LocalAiStatus | null;
   autocomplete: AutocompleteStatus | null;
   service: ServiceStatus | null;
+  chinaRouting: ChinaRoutingStatus;
 }
 
 export interface CoreAppSnapshot {
@@ -77,7 +85,13 @@ const emptySnapshot: CoreAppSnapshot = {
   analyticsEnabled: false,
   meetAutoOrchestratorHandoff: false,
   localState: { encryptionKey: null, onboardingTasks: null },
-  runtime: { screenIntelligence: null, localAi: null, autocomplete: null, service: null },
+  runtime: {
+    screenIntelligence: null,
+    localAi: null,
+    autocomplete: null,
+    service: null,
+    chinaRouting: { configured: false, activeProviders: [], primaryModel: '', autoFallback: false },
+  },
 };
 
 let currentState: CoreState = {

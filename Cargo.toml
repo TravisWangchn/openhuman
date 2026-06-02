@@ -17,6 +17,10 @@ path = "src/bin/slack_backfill.rs"
 name = "gmail-backfill-3d"
 path = "src/bin/gmail_backfill_3d.rs"
 
+[[bin]]
+name = "openhuman-backend"
+path = "src/bin/backend/main.rs"
+
 [lib]
 name = "openhuman_core"
 crate-type = ["rlib"]
@@ -104,7 +108,7 @@ rustls-pki-types = "1.14.0"
 tokio-rustls = "0.26.4"
 webpki-roots = "1.0.6"
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5", features = ["derive", "env"] }
 clap_complete = "4.5"
 lettre = { version = "0.11.19", default-features = false, features = ["builder", "smtp-transport", "rustls-tls"] }
 mail-parser = "0.11.2"
@@ -188,7 +192,7 @@ e2e-test-support = []
 # This fork adds config.static_crt(true) to the build script.
 # See: https://github.com/tinyhumansai/openhuman/issues/273
 [patch.crates-io]
-whisper-rs-sys = { git = "https://github.com/tinyhumansai/whisper-rs-sys.git", branch = "main" }
+whisper-rs-sys = { path = "vendor/whisper-rs-sys" }
 
 # Emit just enough DWARF in release builds for Sentry to symbolicate Rust
 # panics + render surrounding source lines. `line-tables-only` keeps the

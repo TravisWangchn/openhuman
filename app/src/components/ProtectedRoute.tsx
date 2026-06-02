@@ -1,7 +1,10 @@
+import debugFactory from 'debug';
 import { Navigate } from 'react-router-dom';
 
 import { useCoreState } from '../providers/CoreStateProvider';
 import RouteLoadingScreen from './RouteLoadingScreen';
+
+const log = debugFactory('route:protected');
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -23,6 +26,7 @@ const ProtectedRoute = ({ children, requireAuth = true, redirectTo }: ProtectedR
   }
 
   if (requireAuth && !snapshot.sessionToken) {
+    log('redirecting to %s (no sessionToken)', redirectTo || '/');
     return <Navigate to={redirectTo || '/'} replace />;
   }
 

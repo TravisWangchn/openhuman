@@ -57,7 +57,7 @@ import type { ConfirmationModal as ConfirmationModalType } from '../types/intell
 import type { ThreadMessage } from '../types/thread';
 import type { TaskBoardCard, TaskBoardCardStatus } from '../types/turnState';
 import { splitAgentMessageIntoBubbles } from '../utils/agentMessageBubbles';
-import { BILLING_DASHBOARD_URL } from '../utils/links';
+import { DEEPSEEK_TOPUP_URL } from '../utils/links';
 import { openUrl } from '../utils/openUrl';
 import {
   isTauri,
@@ -940,8 +940,9 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
         replyAudioRef.current = audio;
 
         await audio.play();
-      } catch {
+      } catch (err) {
         if (!cancelled) {
+          debugFactory('openhuman:tts')('TTS playback failed: %O', err);
           setSendError(chatSendError('voice_playback', 'Failed to play voice reply.'));
         }
       } finally {
@@ -1837,7 +1838,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                     )}
                     ctaLabel={t('chat.upgrade')}
                     onCtaClick={() => {
-                      void openUrl(BILLING_DASHBOARD_URL);
+                      void openUrl(DEEPSEEK_TOPUP_URL);
                     }}
                     dismissible
                     onDismiss={() => dismissBanner('conversations-warning')}
@@ -1870,7 +1871,7 @@ const Conversations = ({ variant = 'page', composer = 'text' }: ConversationsPro
                 {shouldShowBudgetCompletedMessage && (
                   <button
                     onClick={() => {
-                      void openUrl(BILLING_DASHBOARD_URL);
+                      void openUrl(DEEPSEEK_TOPUP_URL);
                     }}
                     className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-coral-500 hover:bg-coral-400 text-white text-xs font-medium transition-colors">
                     {t('chat.topUp')}

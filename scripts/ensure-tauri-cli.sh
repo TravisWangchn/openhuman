@@ -3,7 +3,7 @@
 #
 # The stock `@tauri-apps/cli` / upstream `tauri-cli` does NOT know how to bundle
 # the CEF (Chromium Embedded Framework) runtime into the `.app` bundle's
-# `Contents/Frameworks/` — so running `cargo tauri dev` with it produces an
+# `Contents/Frameworks/` 鈥?so running `cargo tauri dev` with it produces an
 # `OpenHuman.app` that panics at startup inside
 # `cef::library_loader::LibraryLoader::new(...)` with:
 #   "No such file or directory" (Os { code: 2 })
@@ -55,5 +55,5 @@ fi
 
 echo "[ensure-tauri-cli] installing vendored CEF-aware tauri-cli from $VENDOR_CLI"
 echo "[ensure-tauri-cli] CEF_PATH=$CEF_PATH"
-echo "[ensure-tauri-cli] (first install only — takes a few minutes; subsequent runs are instant)"
+echo "[ensure-tauri-cli] (first install only 鈥?takes a few minutes; subsequent runs are instant)"
 cargo install --locked --path "$VENDOR_CLI"

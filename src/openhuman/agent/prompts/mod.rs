@@ -1378,8 +1378,8 @@ fn default_workspace_file_content(filename: &str) -> &'static str {
     // This module is under `src/openhuman/context/`, so the relative path
     // walks up one level and back into `agent/prompts/`.
     match filename {
-        "SOUL.md" => include_str!("SOUL.md"),
-        "IDENTITY.md" => include_str!("IDENTITY.md"),
+        "SOUL.md" => include_str!("zh-CN/SOUL.md"),
+        "IDENTITY.md" => include_str!("zh-CN/IDENTITY.md"),
         "HEARTBEAT.md" => {
             "# Periodic Tasks\n\n# Add tasks below (one per line, starting with `- `)\n"
         }

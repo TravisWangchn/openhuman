@@ -224,6 +224,12 @@ impl UnifiedMemory {
         &self.vectors_dir
     }
 
+    /// Access the underlying SQLite connection (shared via Arc<Mutex<>>).
+    /// Used by tools that need direct DB access (e.g. `insert_sql_record`).
+    pub fn conn(&self) -> &Arc<Mutex<Connection>> {
+        &self.conn
+    }
+
     pub(crate) fn now_ts() -> f64 {
         use std::time::{SystemTime, UNIX_EPOCH};
         SystemTime::now()

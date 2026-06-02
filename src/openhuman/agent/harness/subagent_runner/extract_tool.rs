@@ -444,18 +444,21 @@ fn write_extract_transcript(
             id: None,
             role: "system".into(),
             content: system_prompt.to_string(),
+            reasoning_content: None,
             extra_metadata: None,
         },
         ChatMessage {
             id: None,
             role: "user".into(),
             content: user_prompt.to_string(),
+            reasoning_content: None,
             extra_metadata: None,
         },
         ChatMessage {
             id: None,
             role: "assistant".into(),
             content: assistant_text,
+            reasoning_content: None,
             extra_metadata: None,
         },
     ];

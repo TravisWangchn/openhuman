@@ -19,6 +19,7 @@ fn call(id: &str) -> ConversationMessage {
             name: "t".into(),
             arguments: "{}".into(),
         }],
+        reasoning_content: None,
     }
 }
 
@@ -83,6 +84,7 @@ impl Provider for StubProvider {
         Ok(ChatResponse {
             text: Some(self.reply.clone()),
             tool_calls: vec![],
+            reasoning_content: None,
             usage: None,
         })
     }
@@ -216,6 +218,7 @@ fn transcript_renders_all_message_variants() {
                 name: "shell".into(),
                 arguments: r#"{"cmd":"ls"}"#.into(),
             }],
+            reasoning_content: None,
         },
         result("1", "file.txt"),
     ];

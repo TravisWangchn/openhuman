@@ -1,12 +1,7 @@
 //! Configuration management for the OpenHuman core.
-//!
-//! This module serves as the primary gateway for all configuration-related functionality.
-//! It re-exports types and functions from submodules to provide a unified API for:
-//! - Loading and saving user settings (`Config`).
-//! - Managing the core daemon's lifecycle and options (`DaemonConfig`).
-//! - Defining the RPC surface for configuration management.
-//! - Handling the schema definitions for all agent and system settings.
+//! OpenHuman-ZN: `china_models` for DeepSeek/Doubao/Qwen providers.
 
+pub mod china_models;
 pub mod daemon;
 pub mod ops;
 pub mod schema;

@@ -187,6 +187,7 @@ impl Provider for ScriptedProvider {
             return Ok(ChatResponse {
                 text: Some(String::new()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             });
         }
@@ -202,6 +203,7 @@ fn text_response(text: &str) -> ChatResponse {
     ChatResponse {
         text: Some(text.into()),
         tool_calls: vec![],
+        reasoning_content: None,
         usage: None,
     }
 }
@@ -214,6 +216,7 @@ fn tool_response(name: &str, args: &str) -> ChatResponse {
             name: name.into(),
             arguments: args.into(),
         }],
+        reasoning_content: None,
         usage: None,
     }
 }

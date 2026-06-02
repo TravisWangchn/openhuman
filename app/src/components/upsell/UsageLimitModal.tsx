@@ -1,14 +1,12 @@
-import type { PlanTier } from '../../types/api';
-import { BILLING_DASHBOARD_URL } from '../../utils/links';
+import { DEEPSEEK_TOPUP_URL } from '../../utils/links';
 import { openUrl } from '../../utils/openUrl';
-import { PLANS } from '../settings/panels/billingHelpers';
 
 interface UsageLimitModalProps {
   open: boolean;
   onClose: () => void;
   isBudgetExhausted: boolean;
   resetTime?: string | null;
-  currentTier: PlanTier;
+  currentTier?: string;
 }
 
 function formatResetTime(isoStr: string): string {
@@ -24,26 +22,17 @@ function formatResetTime(isoStr: string): string {
   return remHours > 0 ? `in ${days}d ${remHours}h` : `in ${days}d`;
 }
 
-function getNextPlan(currentTier: PlanTier) {
-  const currentIndex = PLANS.findIndex(p => p.tier === currentTier);
-  if (currentIndex === -1 || currentIndex >= PLANS.length - 1) return null;
-  return PLANS[currentIndex + 1];
-}
-
 export default function UsageLimitModal({
   open,
   onClose,
   isBudgetExhausted,
   resetTime,
-  currentTier,
 }: UsageLimitModalProps) {
-  const nextPlan = getNextPlan(currentTier);
-
   if (!open) return null;
 
   const bodyText = isBudgetExhausted
-    ? `You've hit your weekly limit.${resetTime ? ` It resets ${formatResetTime(resetTime)}.` : ''} Upgrade your plan or top up credits to avoid limits.`
-    : `You've hit your 10-hour inference rate limit.${resetTime ? ` It resets ${formatResetTime(resetTime)}.` : ''} Upgrade for higher limits.`;
+    ? `You've hit your weekly limit.${resetTime ? ` It resets ${formatResetTime(resetTime)}.` : ''} Top up your DeepSeek API credits to continue.`
+    : `You've hit your 10-hour inference rate limit.${resetTime ? ` It resets ${formatResetTime(resetTime)}.` : ''}`;
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black/30 backdrop-blur-sm flex items-center justify-center">
@@ -68,32 +57,21 @@ export default function UsageLimitModal({
 
         <p className="text-sm text-stone-600 text-center mb-4">{bodyText}</p>
 
-        {nextPlan && (
-          <div className="rounded-xl bg-stone-50 border border-stone-200 p-3 mb-5">
-            <p className="text-xs font-medium text-stone-700 mb-1">
-              {nextPlan.name} plan includes:
-            </p>
-            <ul className="space-y-0.5">
-              <li className="text-xs text-stone-600">
-                ${nextPlan.fiveHourCapUsd.toFixed(2)} per 10-hour window
-              </li>
-              {nextPlan.weeklyBudgetUsd > 0 && (
-                <li className="text-xs text-stone-600">
-                  ${nextPlan.weeklyBudgetUsd}/week included inference
-                </li>
-              )}
-            </ul>
-          </div>
-        )}
+        <div className="rounded-xl bg-stone-50 border border-stone-200 p-3 mb-5">
+          <p className="text-xs font-medium text-stone-700 mb-1">DeepSeek API credits</p>
+          <p className="text-xs text-stone-600">
+            Top up your credits at the DeepSeek Platform to continue using AI features.
+          </p>
+        </div>
 
         <div className="flex flex-col gap-2">
           <button
             onClick={() => {
               onClose();
-              void openUrl(BILLING_DASHBOARD_URL);
+              void openUrl(DEEPSEEK_TOPUP_URL);
             }}
             className="w-full py-2.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-sm font-medium transition-colors">
-            Upgrade Plan
+            Top Up Credits
           </button>
           <button
             onClick={onClose}

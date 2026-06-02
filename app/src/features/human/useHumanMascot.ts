@@ -192,7 +192,9 @@ export function useHumanMascot(options: UseHumanMascotOptions = {}): UseHumanMas
           return;
         }
         // Fire-and-forget — startTtsPlayback owns its cleanup via finally.
-        void startTtsPlayback(e.full_response).catch(() => {});
+        void startTtsPlayback(e.full_response).catch((err: unknown) => {
+          mascotLog('TTS playback failed: %o', err);
+        });
       },
       onError: () => {
         // Bump seq to invalidate any in-flight startTtsPlayback awaiters.

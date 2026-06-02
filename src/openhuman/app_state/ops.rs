@@ -14,8 +14,9 @@ use serde_json::Value;
 use tempfile::NamedTempFile;
 
 use crate::api::config::effective_backend_api_url;
-use crate::api::jwt::{bearer_authorization_value, get_session_token};
+use crate::api::jwt::{bearer_authorization_value, get_session_token_with_dev_fallback};
 use crate::openhuman::autocomplete::AutocompleteStatus;
+use crate::openhuman::config::china_models::ChinaModelsConfig;
 use crate::openhuman::config::rpc as config_rpc;
 use crate::openhuman::config::Config;
 use crate::openhuman::credentials::session_support::build_session_state;
@@ -92,11 +93,57 @@ pub struct AppStateSnapshot {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ChinaRoutingStatus {
+    /// Whether at least one CN provider has a configured API key.
+    pub configured: bool,
+    /// CN providers that are enabled and have valid API keys.
+    pub active_providers: Vec<String>,
+    /// Primary model selected (e.g. "deepseek-chat").
+    pub primary_model: String,
+    /// Whether automatic provider fallback is enabled.
+    pub auto_fallback: bool,
+}
+
+impl ChinaRoutingStatus {
+    fn from_config(cm: Option<&ChinaModelsConfig>) -> Self {
+        let Some(cm) = cm else {
+            return Self {
+                configured: false,
+                active_providers: Vec::new(),
+                primary_model: String::new(),
+                auto_fallback: false,
+            };
+        };
+        let mut active = Vec::new();
+        if cm.deepseek.enabled && cm.deepseek.api_key.as_ref().is_some_and(|k| !k.is_empty()) {
+            active.push("deepseek".to_string());
+        }
+        if cm.doubao.enabled && cm.doubao.api_key.as_ref().is_some_and(|k| !k.is_empty()) {
+            active.push("doubao".to_string());
+        }
+        if cm.qwen.enabled && cm.qwen.api_key.as_ref().is_some_and(|k| !k.is_empty()) {
+            active.push("qwen".to_string());
+        }
+        if cm.moonshot.enabled && cm.moonshot.api_key.as_ref().is_some_and(|k| !k.is_empty()) {
+            active.push("moonshot".to_string());
+        }
+        Self {
+            configured: !active.is_empty(),
+            active_providers: active,
+            primary_model: cm.primary_model.clone(),
+            auto_fallback: cm.auto_fallback,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RuntimeSnapshot {
     pub screen_intelligence: AccessibilityStatus,
     pub local_ai: LocalAiStatus,
     pub autocomplete: AutocompleteStatus,
     pub service: ServiceStatus,
+    pub china_routing: ChinaRoutingStatus,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -441,13 +488,14 @@ async fn build_runtime_snapshot(config: &Config) -> RuntimeSnapshot {
         local_ai,
         autocomplete,
         service,
+        china_routing: ChinaRoutingStatus::from_config(config.china_models.as_ref()),
     }
 }
 
 pub async fn snapshot() -> Result<RpcOutcome<AppStateSnapshot>, String> {
     let config = config_rpc::load_config_with_timeout().await?;
     let mut auth = build_session_state(&config)?;
-    let session_token = get_session_token(&config)?;
+    let session_token = get_session_token_with_dev_fallback(&config)?;
     let stored_user = sanitize_snapshot_user(auth.user.clone());
     let current_user = if let Some(token) = session_token.clone().filter(|t| !t.trim().is_empty()) {
         match fetch_current_user_cached(&config, &token).await {

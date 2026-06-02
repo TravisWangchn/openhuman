@@ -120,11 +120,13 @@ async fn full_turn_cycle_user_llm_tool_result_final() {
             Ok(ChatResponse {
                 text: Some("<tool_call>{\"name\":\"echo\",\"arguments\":{}}</tool_call>".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             }),
             Ok(ChatResponse {
                 text: Some("The tool said: echo-out".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             }),
         ]),
@@ -185,6 +187,7 @@ async fn max_iterations_exceeded_downcasts_to_typed_agent_error() {
         responses: Mutex::new(vec![Ok(ChatResponse {
             text: Some("<tool_call>{\"name\":\"echo\",\"arguments\":{}}</tool_call>".into()),
             tool_calls: vec![],
+            reasoning_content: None,
             usage: None,
         })]),
     };
@@ -251,11 +254,13 @@ async fn visible_tool_names_rejects_tool_outside_whitelist() {
                     "<tool_call>{\"name\":\"echo\",\"arguments\":{}}</tool_call>".into(),
                 ),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             }),
             Ok(ChatResponse {
                 text: Some("corrected response".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             }),
         ]),
@@ -310,11 +315,13 @@ async fn visible_tool_names_allows_tool_inside_whitelist() {
             Ok(ChatResponse {
                 text: Some("<tool_call>{\"name\":\"echo\",\"arguments\":{}}</tool_call>".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             }),
             Ok(ChatResponse {
                 text: Some("heard echo-out".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             }),
         ]),

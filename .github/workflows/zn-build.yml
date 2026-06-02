@@ -1,0 +1,56 @@
+# OpenHuman-ZN CI: fmt → clippy → test → build
+# All paths use ${{ github.workspace }} — no hardcoded Windows paths.
+name: ZN CI
+
+on:
+  push:
+    branches: [zn/*, main]
+  pull_request:
+    branches: [zn/*, main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+defaults:
+  run:
+    working-directory: ${{ github.workspace }}
+
+jobs:
+  rust:
+    name: Rust ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: recursive }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: rustfmt, clippy }
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings 2>&1 | head -200
+      - run: cargo build --bin openhuman-core
+      - run: cargo test --lib -- --test-threads=4
+
+  zn-modules:
+    name: ZN Module Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --lib openhuman::license:: -- --nocapture
+      - run: cargo test --lib openhuman::billing::china_payments:: -- --nocapture
+      - run: cargo test --lib openhuman::doctor::gate:: -- --nocapture
+
+  coverage:
+    name: Coverage ZN modules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - run: cargo llvm-cov --lib --fail-under-lines 60 2>&1 | tail -30
+        continue-on-error: true

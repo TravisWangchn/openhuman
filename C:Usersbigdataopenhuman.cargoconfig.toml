@@ -1,0 +1,4 @@
+[target.x86_64-pc-windows-msvc]
+# Increase default stack reserve from 1 MB to 4 MB to prevent
+# stack overflow in large async functions (e.g. subagent runner).
+rustflags = ["-C", "link-args=/STACK:4194304"]

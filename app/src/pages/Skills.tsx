@@ -770,7 +770,7 @@ export default function Skills() {
               </div>
             </div> */}
 
-            {composioError && (
+            {composioError && composioToolkits.length > 0 && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 shadow-soft">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -855,7 +855,7 @@ export default function Skills() {
                           key={meta.slug}
                           meta={meta}
                           connection={connection}
-                          hasComposioError={Boolean(composioError)}
+                          hasComposioError={Boolean(composioError) && composioToolkits.length > 0}
                           onOpen={() => setComposioModalToolkit(meta)}
                           onRetryGlobal={() => void refreshComposio()}
                         />

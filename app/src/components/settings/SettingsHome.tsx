@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useT } from '../../lib/i18n/I18nContext';
 import { useCoreState } from '../../providers/CoreStateProvider';
 import { clearAllAppData } from '../../utils/clearAllAppData';
-import { BILLING_DASHBOARD_URL } from '../../utils/links';
+import { DEEPSEEK_TOPUP_URL } from '../../utils/links';
 import { openUrl } from '../../utils/openUrl';
 import LanguageSelect from '../LanguageSelect';
 import SettingsHeader from './components/SettingsHeader';
@@ -152,8 +152,8 @@ const SettingsHome = () => {
       items: [
         {
           id: 'billing',
-          title: t('settings.billingUsage'),
-          description: t('settings.billingUsageDesc'),
+          title: t('settings.deepseekCredits'),
+          description: t('settings.deepseekCreditsDesc'),
           icon: (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -165,7 +165,7 @@ const SettingsHome = () => {
             </svg>
           ),
           onClick: () => {
-            openUrl(BILLING_DASHBOARD_URL).catch(() => {});
+            openUrl(DEEPSEEK_TOPUP_URL).catch(() => {});
           },
         },
       ],

@@ -2,7 +2,7 @@ import createDebug from 'debug';
 import { useEffect, useState } from 'react';
 
 import { useT } from '../../../lib/i18n/I18nContext';
-import { BILLING_DASHBOARD_URL } from '../../../utils/links';
+import { DEEPSEEK_TOPUP_URL } from '../../../utils/links';
 import { openUrl } from '../../../utils/openUrl';
 import PageBackButton from '../components/PageBackButton';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
@@ -18,14 +18,14 @@ const BillingPanel = () => {
     let cancelled = false;
 
     const openDashboard = async () => {
-      log('[redirect] opening billing dashboard url=%s', BILLING_DASHBOARD_URL);
+      log('[redirect] opening DeepSeek top-up url=%s', DEEPSEEK_TOPUP_URL);
       try {
-        await openUrl(BILLING_DASHBOARD_URL);
+        await openUrl(DEEPSEEK_TOPUP_URL);
         if (!cancelled) {
           setStatus('idle');
         }
       } catch (error) {
-        log('[redirect] failed to open billing dashboard: %O', error);
+        log('[redirect] failed to open DeepSeek top-up: %O', error);
         if (!cancelled) {
           setStatus('error');
         }
@@ -66,13 +66,13 @@ const BillingPanel = () => {
           <div className="max-w-xl space-y-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">
-                {t('settings.billing.movedToWeb')}
+                {t('settings.billing.apiCredits')}
               </p>
               <h1 className="mt-2 text-2xl font-semibold text-stone-900">
-                {t('settings.billing.openDashboard')}
+                {t('settings.billing.deepseekTopUp')}
               </h1>
               <p className="mt-2 text-sm leading-6 text-stone-600">
-                {t('settings.billing.movedToWebDesc')}
+                {t('settings.billing.deepseekTopUpDesc')}
               </p>
             </div>
 
@@ -80,10 +80,10 @@ const BillingPanel = () => {
               <button
                 type="button"
                 onClick={() => {
-                  void openUrl(BILLING_DASHBOARD_URL);
+                  void openUrl(DEEPSEEK_TOPUP_URL);
                 }}
                 className="inline-flex items-center rounded-full bg-primary-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-600">
-                {t('settings.billing.openDashboard')}
+                {t('settings.billing.openDeepseekTopUp')}
               </button>
               <button
                 type="button"

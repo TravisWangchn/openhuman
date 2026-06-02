@@ -381,6 +381,147 @@ fn encrypt_optional_secret(
     Ok(())
 }
 
+fn decrypt_required_secret(
+    store: &crate::openhuman::security::SecretStore,
+    value: &mut String,
+    field_name: &str,
+) -> Result<()> {
+    if crate::openhuman::security::SecretStore::is_encrypted(value) {
+        *value = store
+            .decrypt(value)
+            .with_context(|| format!("Failed to decrypt {field_name}"))?;
+    }
+    Ok(())
+}
+
+fn encrypt_required_secret(
+    store: &crate::openhuman::security::SecretStore,
+    value: &mut String,
+    field_name: &str,
+) -> Result<()> {
+    if !crate::openhuman::security::SecretStore::is_encrypted(value) {
+        *value = store
+            .encrypt(value)
+            .with_context(|| format!("Failed to encrypt {field_name}"))?;
+    }
+    Ok(())
+}
+
+/// Decrypt all channel-config secret fields after loading from TOML.
+fn decrypt_channel_secrets(
+    config: &mut Config,
+    store: &crate::openhuman::security::SecretStore,
+) -> Result<()> {
+    decrypt_optional_secret(store, &mut config.api_key, "api_key")?;
+
+    let ch = &mut config.channels_config;
+    if let Some(ref mut tg) = ch.telegram {
+        decrypt_required_secret(store, &mut tg.bot_token, "telegram.bot_token")?;
+    }
+    if let Some(ref mut dc) = ch.discord {
+        decrypt_required_secret(store, &mut dc.bot_token, "discord.bot_token")?;
+    }
+    if let Some(ref mut sl) = ch.slack {
+        decrypt_required_secret(store, &mut sl.bot_token, "slack.bot_token")?;
+        decrypt_optional_secret(store, &mut sl.app_token, "slack.app_token")?;
+    }
+    if let Some(ref mut mm) = ch.mattermost {
+        decrypt_required_secret(store, &mut mm.bot_token, "mattermost.bot_token")?;
+    }
+    if let Some(ref mut mx) = ch.matrix {
+        decrypt_required_secret(store, &mut mx.access_token, "matrix.access_token")?;
+    }
+    if let Some(ref mut wa) = ch.whatsapp {
+        decrypt_optional_secret(store, &mut wa.access_token, "whatsapp.access_token")?;
+        decrypt_optional_secret(store, &mut wa.verify_token, "whatsapp.verify_token")?;
+        decrypt_optional_secret(store, &mut wa.app_secret, "whatsapp.app_secret")?;
+    }
+    if let Some(ref mut lq) = ch.linq {
+        decrypt_required_secret(store, &mut lq.api_token, "linq.api_token")?;
+    }
+    if let Some(ref mut ir) = ch.irc {
+        decrypt_optional_secret(store, &mut ir.server_password, "irc.server_password")?;
+        decrypt_optional_secret(store, &mut ir.nickserv_password, "irc.nickserv_password")?;
+        decrypt_optional_secret(store, &mut ir.sasl_password, "irc.sasl_password")?;
+    }
+    if let Some(ref mut lk) = ch.lark {
+        decrypt_required_secret(store, &mut lk.app_secret, "lark.app_secret")?;
+        decrypt_optional_secret(store, &mut lk.encrypt_key, "lark.encrypt_key")?;
+        decrypt_optional_secret(store, &mut lk.verification_token, "lark.verification_token")?;
+    }
+    if let Some(ref mut dt) = ch.dingtalk {
+        decrypt_required_secret(store, &mut dt.client_secret, "dingtalk.client_secret")?;
+    }
+    if let Some(ref mut qq) = ch.qq {
+        decrypt_required_secret(store, &mut qq.app_secret, "qq.app_secret")?;
+    }
+    if let Some(ref mut wh) = ch.webhook {
+        decrypt_optional_secret(store, &mut wh.secret, "webhook.secret")?;
+    }
+    if let Some(ref mut em) = ch.email {
+        decrypt_required_secret(store, &mut em.password, "email.password")?;
+    }
+    Ok(())
+}
+
+/// Encrypt all channel-config secret fields before serializing to TOML.
+/// Operates on a clone — the caller's original Config stays in plaintext.
+fn encrypt_channel_secrets(
+    config: &mut Config,
+    store: &crate::openhuman::security::SecretStore,
+) -> Result<()> {
+    encrypt_optional_secret(store, &mut config.api_key, "api_key")?;
+
+    let ch = &mut config.channels_config;
+    if let Some(ref mut tg) = ch.telegram {
+        encrypt_required_secret(store, &mut tg.bot_token, "telegram.bot_token")?;
+    }
+    if let Some(ref mut dc) = ch.discord {
+        encrypt_required_secret(store, &mut dc.bot_token, "discord.bot_token")?;
+    }
+    if let Some(ref mut sl) = ch.slack {
+        encrypt_required_secret(store, &mut sl.bot_token, "slack.bot_token")?;
+        encrypt_optional_secret(store, &mut sl.app_token, "slack.app_token")?;
+    }
+    if let Some(ref mut mm) = ch.mattermost {
+        encrypt_required_secret(store, &mut mm.bot_token, "mattermost.bot_token")?;
+    }
+    if let Some(ref mut mx) = ch.matrix {
+        encrypt_required_secret(store, &mut mx.access_token, "matrix.access_token")?;
+    }
+    if let Some(ref mut wa) = ch.whatsapp {
+        encrypt_optional_secret(store, &mut wa.access_token, "whatsapp.access_token")?;
+        encrypt_optional_secret(store, &mut wa.verify_token, "whatsapp.verify_token")?;
+        encrypt_optional_secret(store, &mut wa.app_secret, "whatsapp.app_secret")?;
+    }
+    if let Some(ref mut lq) = ch.linq {
+        encrypt_required_secret(store, &mut lq.api_token, "linq.api_token")?;
+    }
+    if let Some(ref mut ir) = ch.irc {
+        encrypt_optional_secret(store, &mut ir.server_password, "irc.server_password")?;
+        encrypt_optional_secret(store, &mut ir.nickserv_password, "irc.nickserv_password")?;
+        encrypt_optional_secret(store, &mut ir.sasl_password, "irc.sasl_password")?;
+    }
+    if let Some(ref mut lk) = ch.lark {
+        encrypt_required_secret(store, &mut lk.app_secret, "lark.app_secret")?;
+        encrypt_optional_secret(store, &mut lk.encrypt_key, "lark.encrypt_key")?;
+        encrypt_optional_secret(store, &mut lk.verification_token, "lark.verification_token")?;
+    }
+    if let Some(ref mut dt) = ch.dingtalk {
+        encrypt_required_secret(store, &mut dt.client_secret, "dingtalk.client_secret")?;
+    }
+    if let Some(ref mut qq) = ch.qq {
+        encrypt_required_secret(store, &mut qq.app_secret, "qq.app_secret")?;
+    }
+    if let Some(ref mut wh) = ch.webhook {
+        encrypt_optional_secret(store, &mut wh.secret, "webhook.secret")?;
+    }
+    if let Some(ref mut em) = ch.email {
+        encrypt_required_secret(store, &mut em.password, "email.password")?;
+    }
+    Ok(())
+}
+
 const ACTIVE_USER_STATE_FILE: &str = "active_user.toml";
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -803,6 +944,32 @@ impl Config {
             migrate_legacy_autocomplete_disabled_apps(&mut config);
             migrate_legacy_inference_url(&mut config);
             migrate_cloud_provider_slugs(&mut config);
+
+            // Decrypt channel secrets that were stored encrypted on disk.
+            // SecretStore::new may IPC to the OS keychain, so run it inside
+            // spawn_blocking to avoid stalling the async runtime.
+            let workspace = config.workspace_dir.clone();
+            let mut store: Option<crate::openhuman::security::SecretStore> = None;
+            {
+                let ws = workspace.clone();
+                store = Some(
+                    tokio::task::spawn_blocking(move || {
+                        crate::openhuman::security::SecretStore::new(&ws, false)
+                    })
+                    .await
+                    .context("SecretStore spawn_blocking panicked")?,
+                );
+            }
+            if let Some(ref store) = store {
+                if let Err(e) = decrypt_channel_secrets(&mut config, store) {
+                    tracing::warn!(
+                        error = %e,
+                        "[config] Failed to decrypt channel secrets — \
+                         tokens may remain encrypted in memory"
+                    );
+                }
+            }
+
             config.apply_env_overrides_from(env);
 
             if config_was_corrupted {
@@ -1477,6 +1644,25 @@ impl Config {
             }
         }
 
+        // ── Doubao (豆包 / 火山引擎 Volcengine) voice overrides ─────────
+        // App ID and Access Token for STT (ASR) and TTS (speech synthesis).
+        // These are Volcengine voice API credentials, distinct from the LLM
+        // inference API key in china_models.
+        if let Some(app_id) = env.get("DOUBAO_APP_ID") {
+            let trimmed = app_id.trim();
+            if !trimmed.is_empty() {
+                self.local_ai.doubao_app_id = Some(trimmed.to_string());
+                log::debug!("[voice] DOUBAO_APP_ID override applied");
+            }
+        }
+        if let Some(access_token) = env.get("DOUBAO_ACCESS_TOKEN") {
+            let trimmed = access_token.trim();
+            if !trimmed.is_empty() {
+                self.local_ai.doubao_access_token = Some(trimmed.to_string());
+                log::debug!("[voice] DOUBAO_ACCESS_TOKEN override applied");
+            }
+        }
+
         // ── Context management overrides ───────────────────────────────
         if let Some(flag) = env.get("OPENHUMAN_CONTEXT_ENABLED") {
             let normalized = flag.trim().to_ascii_lowercase();
@@ -1541,7 +1727,22 @@ impl Config {
     }
 
     pub async fn save(&self) -> Result<()> {
-        let config_to_save = self.clone();
+        let mut config_to_save = self.clone();
+
+        // Encrypt channel secrets before writing to disk.
+        let workspace = self.workspace_dir.clone();
+        let store = tokio::task::spawn_blocking(move || {
+            crate::openhuman::security::SecretStore::new(&workspace, false)
+        })
+        .await
+        .context("SecretStore spawn_blocking panicked")?;
+        if let Err(e) = encrypt_channel_secrets(&mut config_to_save, &store) {
+            tracing::warn!(
+                error = %e,
+                "[config] Failed to encrypt channel secrets before save — \
+                 tokens may be written in plaintext"
+            );
+        }
 
         let toml_str =
             toml::to_string_pretty(&config_to_save).context("Failed to serialize config")?;

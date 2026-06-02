@@ -60,7 +60,7 @@ async fn execute_blocks_when_rate_limited() {
         .await
         .unwrap();
     assert!(result.is_error);
-    assert!(result.output().contains("rate limit"));
+    assert!(result.output().to_lowercase().contains("rate limit"));
 }
 
 #[test]

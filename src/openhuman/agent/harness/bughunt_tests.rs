@@ -77,6 +77,7 @@ async fn native_tool_call_decodes_json_encoded_arguments_string() {
             name: "captured".into(),
             arguments: "{\"city\":\"Berlin\",\"n\":3}".to_string(),
         }],
+        reasoning_content: None,
         usage: None,
     });
 
@@ -138,6 +139,7 @@ async fn documents_silent_drop_of_non_json_arguments_string() {
             // Not valid JSON — the model "meant" a plain string.
             arguments: "world".to_string(),
         }],
+        reasoning_content: None,
         usage: None,
     });
 
@@ -193,6 +195,7 @@ async fn parallel_tool_calls_in_single_iteration_all_execute() {
                 .into(),
         ),
         tool_calls: vec![],
+        reasoning_content: None,
         usage: None,
     });
 
@@ -288,6 +291,7 @@ async fn markdown_fenced_tool_call_block_is_parsed() {
             .into(),
         ),
         tool_calls: vec![],
+        reasoning_content: None,
         usage: None,
     });
 
@@ -341,6 +345,7 @@ async fn native_tool_calls_take_precedence_over_xml_in_text() {
             name: "tool_a".into(),
             arguments: "{\"src\":\"native\"}".into(),
         }],
+        reasoning_content: None,
         usage: None,
     });
 
@@ -452,6 +457,7 @@ async fn empty_response_with_no_tool_calls_terminates_with_empty_text() {
     provider.push_forced_response(ChatResponse {
         text: Some(String::new()),
         tool_calls: vec![],
+        reasoning_content: None,
         usage: None,
     });
 

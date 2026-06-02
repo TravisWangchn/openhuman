@@ -824,21 +824,27 @@ impl Agent {
                         .join("agent")
                         .join("prompts")
                         .join(path);
-                    let body_text = if workspace_path.is_file() {
-                        std::fs::read_to_string(&workspace_path).unwrap_or_else(|e| {
-                            log::warn!(
-                                "[agent::builder] failed to read prompt {}: {e} — using empty body",
-                                workspace_path.display()
-                            );
-                            String::new()
-                        })
-                    } else {
+                    let body_text = crate::openhuman::security::validate_workspace_path(
+                        &config.workspace_dir,
+                        &workspace_path,
+                    )
+                    .and_then(|resolved| {
+                        std::fs::read_to_string(&resolved)
+                            .map_err(|e| {
+                                log::warn!(
+                                    "[agent::builder] failed to read prompt {}: {e}",
+                                    resolved.display()
+                                );
+                            })
+                            .ok()
+                    })
+                    .unwrap_or_default();
+                    if body_text.is_empty() {
                         log::warn!(
-                            "[agent::builder] prompt file {} not found — using empty body",
+                            "[agent::builder] prompt file {} not found, unreadable, or outside workspace",
                             path
                         );
-                        String::new()
-                    };
+                    }
                     SystemPromptBuilder::for_subagent(
                         body_text,
                         def.omit_identity,

@@ -93,7 +93,7 @@ async fn start_chat_emits_sanitized_chat_error_on_inference_failure() {
     .await
     .expect("start_chat should accept valid request");
 
-    let expected = generic_inference_error_user_message().to_string();
+    let expected = generic_inference_error_user_message(false).to_string();
     let recv = timeout(Duration::from_secs(20), async move {
         loop {
             let event = rx.recv().await.expect("event stream should stay open");
@@ -159,7 +159,7 @@ fn extract_provider_error_detail_returns_none_for_transport_errors() {
 #[test]
 fn classify_inference_error_quotes_model_unavailable_detail() {
     let raw = r#"custom_openai API error (404 Not Found): {"error":{"message":"The model `gpt-5.5` does not exist or you do not have access to it.","code":"model_not_found"}}"#;
-    let (category, message) = classify_inference_error(raw);
+    let (category, message) = classify_inference_error(raw, false);
     assert_eq!(category, "model_unavailable");
     assert!(message.contains("Check your model settings"));
     assert!(
@@ -170,7 +170,7 @@ fn classify_inference_error_quotes_model_unavailable_detail() {
 
 #[test]
 fn generic_error_copy_is_sanitized_and_has_discord_report_action() {
-    let message = generic_inference_error_user_message();
+    let message = generic_inference_error_user_message(false);
     assert!(message.contains("Something went wrong. Please try again."));
     assert!(message.contains("This error has been reported."));
     assert!(message

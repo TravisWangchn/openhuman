@@ -269,6 +269,7 @@ mod tests {
                 name: "t".into(),
                 arguments: "{}".into(),
             }],
+            reasoning_content: None,
         }
     }
 

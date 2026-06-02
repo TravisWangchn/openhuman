@@ -16,6 +16,7 @@ import {
   segmentText,
   subscribeChatEvents,
 } from '../services/chatService';
+import { extendAuthExpiredSuppression } from '../services/coreRpcClient';
 import { store } from '../store';
 import {
   clearInferenceStatusForThread,
@@ -44,8 +45,12 @@ import { IS_PROD } from '../utils/config';
 import { formatTimelineEntry, promptFromArgsBuffer } from '../utils/toolTimelineFormatting';
 
 const logChatRuntime = debug('openhuman:chat-runtime');
-const USER_FACING_AGENT_ERROR_MESSAGE =
-  'Something went wrong. Please try again.\nThis error has been reported. You can also report it on Discord.\n<openhuman-link path="community/discord">Report on Discord</openhuman-link>';
+function getGenericErrorMessage(locale: string): string {
+  if (locale === 'zh-CN') {
+    return '出现了一些问题，请重试。\n此错误已自动上报，你也可以在 Discord 上反馈。\n<openhuman-link path="community/discord">在 Discord 上反馈</openhuman-link>';
+  }
+  return 'Something went wrong. Please try again.\nThis error has been reported. You can also report it on Discord.\n<openhuman-link path="community/discord">Report on Discord</openhuman-link>';
+}
 
 const SEGMENT_DELIVERY_TTL_MS = 5 * 60 * 1000;
 const MAX_SEGMENT_DELIVERIES = 100;
@@ -726,6 +731,8 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           output_tokens: event.total_output_tokens,
         });
 
+        extendAuthExpiredSuppression(10_000);
+
         const deliveryKey = segmentDeliveryKey(event.thread_id, event.request_id);
         const segmentDelivery = takeSegmentDelivery(segmentDeliveriesRef.current, deliveryKey);
         const completeSegmentDelivery = hasCompleteSegmentDelivery(event, segmentDelivery);
@@ -849,14 +856,13 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           const currentState = store.getState();
           const threadMessages = currentState.thread.messagesByThreadId[event.thread_id] ?? [];
           const lastMsg = threadMessages[threadMessages.length - 1];
-          // For the generic 'inference' type the server may send a raw internal error string;
-          // use the safe user-facing constant instead. For all other classified types
-          // (rate_limited, timeout, auth_error, etc.) the message comes from
-          // classify_inference_error() in web.rs and is already user-friendly.
+          // classify_inference_error() in web.rs now returns localized
+          // messages (Chinese for CN deployments) for all classified types.
+          // For 'inference' type (unclassified), use the locale-aware
+          // fallback to prevent raw internal errors from leaking to the UI.
+          const genericMsg = getGenericErrorMessage(store.getState().locale.current);
           const errorContent =
-            event.error_type === 'inference'
-              ? USER_FACING_AGENT_ERROR_MESSAGE
-              : event.message || USER_FACING_AGENT_ERROR_MESSAGE;
+            event.error_type === 'inference' ? genericMsg : event.message || genericMsg;
           if (!(lastMsg?.sender === 'agent' && lastMsg?.content === errorContent)) {
             void dispatch(
               addInferenceResponse({ content: errorContent, threadId: event.thread_id })

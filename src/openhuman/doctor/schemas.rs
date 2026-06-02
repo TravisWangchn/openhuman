@@ -7,7 +7,12 @@ use crate::openhuman::config::rpc as config_rpc;
 use crate::rpc::RpcOutcome;
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
-    vec![schemas("report"), schemas("models")]
+    vec![
+        schemas("report"),
+        schemas("models"),
+        schemas("gate_status"),
+        schemas("gate_report"),
+    ]
 }
 
 pub fn all_registered_controllers() -> Vec<RegisteredController> {
@@ -19,6 +24,14 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("models"),
             handler: handle_models,
+        },
+        RegisteredController {
+            schema: schemas("gate_status"),
+            handler: handle_gate_status,
+        },
+        RegisteredController {
+            schema: schemas("gate_report"),
+            handler: handle_gate_report,
         },
     ]
 }
@@ -54,6 +67,33 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "gate_status" => ControllerSchema {
+            namespace: "doctor",
+            function: "gate_status",
+            description: "OpenHuman-ZN GATE闸机 startup self-check summary (quick).",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "status",
+                ty: TypeSchema::Json,
+                comment:
+                    "GateStatus with all_passed, passed_count, total_count, and per-check results.",
+                required: true,
+            }],
+        },
+        "gate_report" => ControllerSchema {
+            namespace: "doctor",
+            function: "gate_report",
+            description:
+                "OpenHuman-ZN GATE闸机 detailed report with safe-mode config and suggested fixes.",
+            inputs: vec![],
+            outputs: vec![FieldSchema {
+                name: "report",
+                ty: TypeSchema::Json,
+                comment:
+                    "GateReport with status, safe_mode config, suggested fixes, and timestamp.",
+                required: true,
+            }],
+        },
         _ => ControllerSchema {
             namespace: "doctor",
             function: "unknown",
@@ -84,6 +124,24 @@ fn handle_models(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
+fn handle_gate_status(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let china_models = config.china_models.as_ref();
+        let status = crate::openhuman::doctor::gate::run_gate_checks(china_models).await;
+        Ok(serde_json::to_value(&status).unwrap_or_default())
+    })
+}
+
+fn handle_gate_report(_params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let config = config_rpc::load_config_with_timeout().await?;
+        let china_models = config.china_models.as_ref();
+        let report = crate::openhuman::doctor::gate::run_gate_checks_detailed(china_models).await;
+        Ok(serde_json::to_value(&report).unwrap_or_default())
+    })
+}
+
 fn read_optional<T: DeserializeOwned>(
     params: &Map<String, Value>,
     key: &str,
@@ -105,13 +163,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn all_schemas_returns_two() {
-        assert_eq!(all_controller_schemas().len(), 2);
+    fn all_schemas_returns_four() {
+        assert_eq!(all_controller_schemas().len(), 4);
     }
 
     #[test]
-    fn all_controllers_returns_two() {
-        assert_eq!(all_registered_controllers().len(), 2);
+    fn all_controllers_returns_four() {
+        assert_eq!(all_registered_controllers().len(), 4);
     }
 
     #[test]

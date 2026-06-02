@@ -370,6 +370,7 @@ fn read_transcript_jsonl(path: &Path) -> Result<SessionTranscript> {
                     id: ml.id,
                     role: ml.role,
                     content: ml.content,
+                    reasoning_content: None,
                     extra_metadata: ml.extra_metadata,
                 });
             }
@@ -720,6 +721,7 @@ fn parse_legacy_messages(raw: &str) -> Result<Vec<ChatMessage>> {
                 id: None,
                 role,
                 content: content.replace(LEGACY_MSG_CLOSE_ESCAPED, LEGACY_MSG_CLOSE),
+                reasoning_content: None,
                 extra_metadata: None,
             });
             search_from = content_start + content_end_rel + LEGACY_MSG_CLOSE.len();
@@ -731,6 +733,7 @@ fn parse_legacy_messages(raw: &str) -> Result<Vec<ChatMessage>> {
             id: None,
             role,
             content: content.replace(LEGACY_MSG_CLOSE_ESCAPED, LEGACY_MSG_CLOSE),
+            reasoning_content: None,
             extra_metadata: None,
         });
 

@@ -532,6 +532,25 @@ const zhCN: TranslationMap = {
   'voice.startVoiceServer': '启动语音服务',
   'voice.stopVoiceServer': '停止语音服务',
   'voice.debugTitle': '语音调试',
+  'voice.mascotVoice': '助手语音',
+  'voice.mascotVoiceDesc': '选择助手朗读回复时使用的语音。可从预设中挑选，或粘贴自定义语音 ID。',
+  'voice.voicePreset': '语音预设',
+  'voice.otherVoice': '其他（粘贴语音 ID）...',
+  'voice.customVoiceId': '自定义语音 ID',
+  'voice.findVoiceIds': '在',
+  'voice.orDashboard': '或 ElevenLabs 控制面板中查找语音 ID。仅存储 ID — API 密钥保留在后端。',
+  'voice.previewing': '试听中...',
+  'voice.previewVoice': '试听',
+  'voice.alreadyDefault': '已在默认语音',
+  'voice.restoreDefault': '恢复默认语音',
+  'voice.resetToDefault': '恢复默认',
+  'voice.current': '当前',
+  'voice.previewFailed': '语音试听失败',
+  'voice.doubaoCredentials': '火山引擎（豆包）凭证',
+  'voice.doubaoCredentialsDesc':
+    '使用豆包语音识别和合成需填写火山引擎 App ID 和 Access Token。可在火山引擎控制台获取。',
+  'voice.doubaoAppId': 'App ID',
+  'voice.doubaoAccessToken': 'Access Token',
 
   // Autocomplete
   'autocomplete.title': '自动补全',
@@ -924,6 +943,9 @@ const zhCN: TranslationMap = {
   'bootCheck.cannotReach': '无法连接到核心',
   'bootCheck.cannotReachDesc': '核心进程无法访问。请尝试切换到其他模式。',
   'bootCheck.switchMode': '切换模式',
+  'bootCheck.localhostCloudSuggestion':
+    '您当前处于云端模式，但 URL 指向了本地地址。桌面版请切换到本地模式。',
+  'bootCheck.switchToLocal': '切换到本地模式',
   'bootCheck.quit': '退出',
   'bootCheck.legacyDetected': '检测到旧版后台核心',
   'bootCheck.legacyDescription':
@@ -1041,6 +1063,55 @@ const zhCN: TranslationMap = {
   'localModel.usage.idleMode': '空闲模式',
   'localModel.rebootstrapComplete': '模型重新引导完成。',
   'localModel.modelsVerified': '本地模型已验证。',
+
+  // ── OpenHuman-ZN ──────────────────────────────────────────────────
+  'zn.brand': 'OpenHuman-ZN',
+  'zn.brandFull': 'OpenHuman-ZN (中文版)',
+  'zn.slogan': '本地商家的 AI 超级智能助手',
+
+  // License
+  'license.title': '许可证',
+  'license.status': '许可证状态',
+  'license.tier.trial': '免费试用',
+  'license.tier.personal': '个人版 (¥199/月)',
+  'license.tier.team': '团队版 (¥499/月)',
+  'license.tier.enterprise': '企业版',
+  'license.activate': '激活许可证',
+  'license.keyPlaceholder': 'XXXX-XXXX-XXXX-XXXX',
+  'license.activating': '激活中...',
+  'license.activated': '许可证已激活',
+  'license.expired': '许可证已过期',
+  'license.daysRemaining': '剩余 {n} 天',
+  'license.requestsToday': '今日请求: {n}',
+  'license.unlimited': '无限制',
+  'license.safeMode': '安全模式（仅本地功能可用）',
+
+  // GATE闸机
+  'gate.title': '系统自检 (GATE闸机)',
+  'gate.passed': '自检通过: {n}/{total}',
+  'gate.failed': '自检未通过: {n}/{total}',
+  'gate.gate1': 'GATE-1 文件完整性',
+  'gate.gate2': 'GATE-2 API密钥',
+  'gate.gate3': 'GATE-3 模型连通性',
+  'gate.gate4': 'GATE-4 支付回调',
+  'gate.gate5': 'GATE-5 磁盘配额',
+  'gate.safeModeActive': '安全模式已激活 — 云端功能已禁用',
+
+  // China Payment
+  'payment.wechatPay': '微信支付',
+  'payment.alipay': '支付宝',
+  'payment.scanToPay': '请使用{method}扫码支付',
+  'payment.amountCny': '¥{amount}',
+  'payment.paying': '支付中...',
+  'payment.paid': '已支付',
+  'payment.fapiao': '发票',
+
+  // China Models
+  'models.deepseek': 'DeepSeek (推荐)',
+  'models.doubao': '豆包 (备用)',
+  'models.qwen': '通义千问',
+  'models.moonshot': 'Moonshot/Kimi',
+  'models.fallbackActive': '已切换到备用模型',
 };
 
 export default zhCN;

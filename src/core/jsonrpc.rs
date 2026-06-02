@@ -9,7 +9,7 @@
 use std::sync::Arc;
 
 use axum::extract::{Query, State, WebSocketUpgrade};
-use axum::http::{header, HeaderValue, Method, StatusCode};
+use axum::http::{header, HeaderName, HeaderValue, Method, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
@@ -228,10 +228,32 @@ pub async fn invoke_method(state: AppState, method: &str, params: Value) -> Resu
 /// as a local guard rather than a backend response.
 fn is_session_expired_error(msg: &str) -> bool {
     let lower = msg.to_lowercase();
-    (lower.contains("401") && lower.contains("unauthorized"))
-        || lower.contains("invalid token")
-        || lower.contains("no backend session token")
+
+    // "401" + "unauthorized" is a generic HTTP pattern that also matches
+    // third-party provider API errors (DeepSeek, OpenAI, Anthropic, …).
+    // Require at least one backend / session context keyword so that a
+    // BYO-key 401 from a model provider does NOT trigger session teardown
+    // and a UI-level login redirect.
+    let is_401_unauthorized = lower.contains("401") && lower.contains("unauthorized");
+    let has_backend_context = lower.contains("session")
+        || lower.contains("jwt")
+        || lower.contains("backend")
+        || lower.contains("openhuman")
+        || lower.contains("auth_store");
+
+    // "invalid token" is similarly generic — scope it to backend / session
+    // contexts so that provider API-key errors don't trigger expiry.
+    let is_invalid_token = lower.contains("invalid token");
+    let has_token_context = lower.contains("session")
+        || lower.contains("jwt")
+        || lower.contains("backend")
+        || lower.contains("openhuman")
+        || lower.contains("auth");
+
+    (is_401_unauthorized && has_backend_context)
+        || (is_invalid_token && has_token_context)
         || lower.contains("session jwt required")
+        || lower.contains("session expired")
         || msg.contains("SESSION_EXPIRED")
 }
 
@@ -627,6 +649,10 @@ fn with_cors_headers(mut response: Response) -> Response {
     headers.insert(
         header::ACCESS_CONTROL_MAX_AGE,
         HeaderValue::from_static("86400"),
+    );
+    headers.insert(
+        HeaderName::from_static("access-control-allow-private-network"),
+        HeaderValue::from_static("true"),
     );
     response
 }
@@ -1103,7 +1129,7 @@ fn register_domain_subscribers(
         // session. Without this, a sidecar that boots with no stored JWT
         // would happily spin up cron / channel loops and fire LLM requests
         // that all 401 immediately.
-        match crate::api::jwt::get_session_token(&config) {
+        match crate::api::jwt::get_session_token_with_dev_fallback(&config) {
             Ok(Some(_)) => {
                 crate::openhuman::scheduler_gate::set_signed_out(false);
             }
@@ -1177,6 +1203,20 @@ pub async fn bootstrap_skill_runtime(embedded_core: bool) {
         }
     };
     let workspace_dir = cfg.workspace_dir.clone();
+
+    // OpenHuman-ZN: detect network environment at startup so routing
+    // and model selection can adapt to China-direct vs VPN scenarios.
+    tokio::spawn(async {
+        let env = crate::openhuman::network::detect_environment().await;
+        log::info!(
+            "[network] china_direct={} hf_available={} (deepseek={:?} doubao={:?} huggingface={:?})",
+            env.china_direct,
+            env.hf_available,
+            env.deepseek,
+            env.doubao,
+            env.huggingface,
+        );
+    });
 
     // --- Event bus bootstrap ---
     // Ensure the global event bus is initialized (no-op if already done by start_channels).
@@ -1272,7 +1312,7 @@ pub async fn bootstrap_skill_runtime(embedded_core: bool) {
             }
         };
         let api_url = crate::api::config::effective_backend_api_url(&config.api_url);
-        let token = match crate::api::jwt::get_session_token(&config) {
+        let token = match crate::api::jwt::get_session_token_with_dev_fallback(&config) {
             Ok(Some(t)) => t,
             Ok(None) => {
                 log::info!("[socket] No session token stored — skipping auto-connect (will connect after login)");

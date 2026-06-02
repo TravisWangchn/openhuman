@@ -18,6 +18,7 @@ import {
   setCoreStateSnapshot,
 } from '../lib/coreState/store';
 import { syncAnalyticsConsent } from '../services/analytics';
+import { isAuthExpiredSuppressed } from '../services/coreRpcClient';
 import {
   fetchCoreAppSnapshot,
   getTeamInvites,
@@ -30,6 +31,7 @@ import { store } from '../store';
 import { resetUserScopedState } from '../store/resetActions';
 import { loadThreads, resetThreadCachesPreservingSelection } from '../store/threadSlice';
 import { getActiveUserId, setActiveUserId } from '../store/userScopedStorage';
+import { DEV_JWT_TOKEN } from '../utils/config';
 import {
   openhumanUpdateAnalyticsSettings,
   openhumanUpdateMeetSettings,
@@ -167,6 +169,12 @@ function normalizeSnapshot(
       localAi: result.runtime?.localAi ?? null,
       autocomplete: result.runtime?.autocomplete ?? null,
       service: result.runtime?.service ?? null,
+      chinaRouting: result.runtime?.chinaRouting ?? {
+        configured: false,
+        activeProviders: [],
+        primaryModel: '',
+        autoFallback: false,
+      },
     },
   };
 }
@@ -190,6 +198,10 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
   const logoutGuardUntilRef = useRef(0);
   const bootstrapFailCountRef = useRef(0);
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
+  // Guard against transient null sessionToken from core polling causing
+  // ProtectedRoute→/→PublicRoute→/home redirect chain. Only commit null
+  // after 3 consecutive polls (6s) to distinguish transient from real.
+  const nullTokenPollCountRef = useRef(0);
   const commitState = useCallback((updater: (previous: CoreState) => CoreState) => {
     setState(previous => {
       const next = updater(previous);
@@ -201,12 +213,38 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
   const refreshCore = useCallback(async () => {
     const requestId = ++snapshotRequestIdRef.current;
     const snapshot = normalizeSnapshot(await fetchCoreAppSnapshot());
+    // DEV bypass: inject fake session when DEV_JWT_TOKEN is set and core
+    // has no session (local/offline mode without OAuth login).
+    if (!snapshot.sessionToken && DEV_JWT_TOKEN) {
+      snapshot.sessionToken = DEV_JWT_TOKEN;
+      snapshot.auth.isAuthenticated = true;
+      log('DEV_JWT_TOKEN bypass: injected fake session for local mode');
+    }
     if (!snapshot.sessionToken) {
       logoutGuardUntilRef.current = 0;
     }
     // Capture pre-commit identity outside the setState updater so flip
     // detection runs synchronously regardless of React's batching policy.
     const beforeCommit = getCoreStateSnapshot().snapshot;
+
+    // Transient-null guard: if the core returns a null token but we had a
+    // valid one and we're not in a clearSession flow, require 3 consecutive
+    // null polls before committing. The first 2 are treated as transient
+    // (file I/O race, core restart, etc.) and silently skipped. This
+    // prevents the redirect chain: ProtectedRoute→/→PublicRoute→/home.
+    if (!snapshot.sessionToken && beforeCommit.sessionToken && logoutGuardUntilRef.current === 0) {
+      nullTokenPollCountRef.current += 1;
+      if (nullTokenPollCountRef.current < 3) {
+        log(
+          'ignoring transient null sessionToken (poll %d/3) — keeping existing token',
+          nullTokenPollCountRef.current
+        );
+        return;
+      }
+      log('null sessionToken persisted for 3 polls — committing signed-out state');
+    } else if (snapshot.sessionToken) {
+      nullTokenPollCountRef.current = 0;
+    }
     const shouldIgnoreTokenDuringLogout =
       Date.now() < logoutGuardUntilRef.current &&
       !beforeCommit.sessionToken &&
@@ -447,6 +485,7 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
 
       snapshotRequestIdRef.current += 1;
       logoutGuardUntilRef.current = 0;
+      nullTokenPollCountRef.current = 0;
 
       memoryTokenRef.current = token;
       commitState(previous => ({
@@ -606,6 +645,10 @@ export default function CoreStateProvider({ children }: { children: ReactNode })
   // so re-registers are rare.
   useEffect(() => {
     const runReauth = (method: string, source: string) => {
+      if (isAuthExpiredSuppressed()) {
+        log('auth-expired suppressed (method=%s source=%s)', method, source);
+        return;
+      }
       const now = Date.now();
       if (now - lastReauthAtRef.current < 10_000) {
         log('auth-expired debounced (method=%s source=%s)', method, source);

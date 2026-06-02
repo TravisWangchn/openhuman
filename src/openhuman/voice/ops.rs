@@ -16,6 +16,7 @@ use crate::openhuman::local_ai::paths::{
 use crate::openhuman::local_ai::whisper_engine;
 use crate::rpc::RpcOutcome;
 
+use super::factory;
 use super::hallucination::{is_hallucinated_output, HallucinationMode};
 use super::postprocess;
 use super::types::{VoiceSpeechResult, VoiceStatus, VoiceTtsResult};
@@ -54,16 +55,8 @@ pub async fn voice_status(config: &Config) -> Result<RpcOutcome<VoiceStatus>, St
         safe_basename_str(&tts_voice),
     );
 
-    let stt_provider = if config.local_ai.stt_provider.trim().is_empty() {
-        "cloud".to_string()
-    } else {
-        config.local_ai.stt_provider.clone()
-    };
-    let tts_provider = if config.local_ai.tts_provider.trim().is_empty() {
-        "cloud".to_string()
-    } else {
-        config.local_ai.tts_provider.clone()
-    };
+    let stt_provider = super::schemas::effective_stt_provider(config);
+    let tts_provider = super::schemas::effective_tts_provider(config);
 
     let status = VoiceStatus {
         stt_available,
@@ -78,6 +71,8 @@ pub async fn voice_status(config: &Config) -> Result<RpcOutcome<VoiceStatus>, St
         llm_cleanup_enabled: config.local_ai.voice_llm_cleanup_enabled,
         stt_provider,
         tts_provider,
+        doubao_configured: config.local_ai.doubao_app_id.is_some()
+            && config.local_ai.doubao_access_token.is_some(),
     };
 
     Ok(RpcOutcome::single_log(status, "voice status checked"))
@@ -148,8 +143,46 @@ pub async fn voice_transcribe_bytes(
 ) -> Result<RpcOutcome<VoiceSpeechResult>, String> {
     let started = Instant::now();
     let ext = normalize_extension(extension)?;
+
+    let started = Instant::now();
+    let provider_name = super::schemas::effective_stt_provider(config);
+
+    // ── Cloud factory path (doubao / cloud) ──
+    if provider_name == "doubao" || provider_name == "cloud" {
+        let audio_b64 =
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, audio_bytes);
+        let mime = format!("audio/{ext}");
+        let model = model_ids::effective_stt_model_id(config);
+        let provider = factory::create_stt_provider(&provider_name, &model, config)
+            .map_err(|e| format!("STT provider: {e}"))?;
+        let result = provider
+            .transcribe(
+                config,
+                &audio_b64,
+                Some(&mime),
+                Some(&format!("audio.{ext}")),
+                None,
+            )
+            .await?;
+        let raw_text = result.value.text.clone();
+        let text = if skip_cleanup {
+            raw_text.clone()
+        } else {
+            postprocess::cleanup_transcription(config, &raw_text, context).await
+        };
+        return Ok(RpcOutcome::single_log(
+            VoiceSpeechResult {
+                text,
+                raw_text,
+                model_id: model_ids::effective_stt_model_id(config),
+            },
+            "voice transcribed (cloud)",
+        ));
+    }
+
+    // ── Local whisper path ──
     debug!(
-        "{LOG_PREFIX} transcribe_bytes size={} ext={ext}",
+        "{LOG_PREFIX} transcribe_bytes size={} ext={ext} provider={provider_name}",
         audio_bytes.len()
     );
 

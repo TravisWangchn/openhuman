@@ -18,7 +18,6 @@ hint = "agentic"
 named = [
     "http_request",
     "curl",
-    "web_search",
     "web_search_tool",
     "file_read",
     # Coding-harness read-only primitives from #1208. `web_fetch` is the

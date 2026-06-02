@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::api::config::effective_backend_api_url;
-use crate::api::jwt::get_session_token;
+use crate::api::jwt::get_session_token_with_dev_fallback;
 use crate::api::BackendOAuthClient;
 use crate::openhuman::config::Config;
 use crate::rpc::RpcOutcome;
@@ -80,7 +80,7 @@ pub async fn synthesize_reply(
         return Err("text is required".to_string());
     }
 
-    let token = get_session_token(config)
+    let token = get_session_token_with_dev_fallback(config)
         .map_err(|e| e.to_string())?
         .and_then(|t| {
             let s = t.trim().to_string();

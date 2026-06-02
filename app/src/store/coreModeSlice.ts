@@ -12,7 +12,7 @@
  */
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
-import { E2E_DEFAULT_CORE_MODE } from '../utils/config';
+import { CORE_RPC_TOKEN, CORE_RPC_URL, E2E_DEFAULT_CORE_MODE } from '../utils/config';
 
 export type CoreMode =
   | { kind: 'unset' }
@@ -55,6 +55,11 @@ const CORE_MODE_STORAGE_KEY = 'openhuman_core_mode';
 function deriveInitialMode(): CoreMode {
   if (E2E_DEFAULT_CORE_MODE === 'local') {
     return { kind: 'local' };
+  }
+  if (E2E_DEFAULT_CORE_MODE === 'cloud') {
+    const url = CORE_RPC_URL?.trim();
+    const token = CORE_RPC_TOKEN?.trim();
+    if (url && token) return { kind: 'cloud', url, token };
   }
 
   if (typeof localStorage === 'undefined') return { kind: 'unset' };

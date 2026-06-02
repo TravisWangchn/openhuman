@@ -32,6 +32,7 @@ impl Provider for StubProvider {
         Ok(ChatResponse {
             text: Some("ok".into()),
             tool_calls: Vec::new(),
+            reasoning_content: None,
             usage: None,
         })
     }

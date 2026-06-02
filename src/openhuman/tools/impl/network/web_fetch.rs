@@ -7,7 +7,7 @@
 //! as text, capped, with a tiny preamble (status + final URL).
 
 use super::url_guard::{normalize_allowed_domains, validate_url};
-use crate::openhuman::security::SecurityPolicy;
+use crate::openhuman::security::{SecurityPolicy, ToolOperation};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -48,8 +48,10 @@ impl Tool for WebFetchTool {
 
     fn description(&self) -> &str {
         "GET a URL and return its body as text (truncated). Use this for \
-         reading docs / READMEs / spec pages. For richer HTTP semantics \
-         (POST, custom headers, …) use `http_request`."
+         real-time info: weather (www.weather.com.cn, weather.cma.cn), \
+         news, docs, API responses. For Chinese deployments prefer \
+         domestic services (weather.com.cn, baidu.com). \
+         For richer HTTP semantics (POST, custom headers, …) use `http_request`."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -98,15 +100,13 @@ impl Tool for WebFetchTool {
             .map(|n| (n as usize).max(1))
             .unwrap_or(self.max_bytes);
 
-        if self.security.is_rate_limited() {
-            return Ok(ToolResult::error(
-                "Rate limit exceeded: too many actions in the last hour",
-            ));
-        }
-        if !self.security.record_action() {
-            return Ok(ToolResult::error(
-                "Rate limit exceeded: action budget exhausted",
-            ));
+        // ReadOnly tool — uses the shared policy gate which exempts Read
+        // operations from the action rate budget (only Act ops consume it).
+        if let Err(e) = self
+            .security
+            .enforce_tool_operation(ToolOperation::Read, self.name())
+        {
+            return Ok(ToolResult::error(e));
         }
 
         let url = match validate_url(raw_url, &self.allowed_domains) {
@@ -118,11 +118,13 @@ impl Tool for WebFetchTool {
         // redirects by default, and a redirect target may be on a host
         // outside the allowed-domains list. We surface 3xx responses to
         // the caller so they can decide whether to refetch the new URL.
-        let client = match reqwest::Client::builder()
+        let builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(self.timeout_secs))
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-        {
+            .connect_timeout(Duration::from_secs(10))
+            .redirect(reqwest::redirect::Policy::none());
+        let builder =
+            crate::openhuman::config::apply_runtime_proxy_to_builder(builder, "tool.web_fetch");
+        let client = match builder.build() {
             Ok(c) => c,
             Err(e) => return Ok(ToolResult::error(format!("Failed to build client: {e}"))),
         };

@@ -609,6 +609,7 @@ fn chat_message_identity_metadata_is_not_provider_wire_payload() {
         id: Some("msg_123".to_string()),
         role: "user".to_string(),
         content: "hello".to_string(),
+        reasoning_content: None,
         extra_metadata: Some(serde_json::json!({"citation": "mem-1"})),
     };
 
@@ -959,6 +960,7 @@ async fn chat_with_tools_fails_without_key() {
         id: None,
         role: "user".to_string(),
         content: "hello".to_string(),
+        reasoning_content: None,
         extra_metadata: None,
     }];
     let tools = vec![serde_json::json!({

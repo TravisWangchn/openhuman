@@ -9,14 +9,22 @@
 //! ```text
 //! "openhuman"        → OpenHumanBackendProvider; model = config.default_model
 //! "ollama:<model>"   → local Ollama at config.local_ai.base_url
+//! "cn:<provider>"    → China-hosted provider from [china_models] config
+//! "cn:<p>:<model>"   → China-hosted provider with explicit model
 //! "<slug>:<model>"   → cloud_providers entry keyed by slug;
 //!                      builds OpenAiCompatibleProvider (Bearer) or Anthropic
 //!                      flavour depending on auth_style.
-//! ""  / missing      → falls back to "openhuman"
+//! ""  / missing      → falls back to "cn:deepseek" when china_models is
+//!                      configured, otherwise "openhuman"
 //! ```
 //!
 //! Unknown slugs and missing-creds configurations produce actionable errors.
 
+use crate::openhuman::config::china_models::{
+    ChinaModelsConfig, CN_API_BASE_DEEPSEEK, CN_API_BASE_DOUBAO, CN_API_BASE_MOONSHOT,
+    CN_API_BASE_QWEN, CN_MODEL_DEEPSEEK_CHAT, CN_MODEL_DOUBAO_PRO_32K, CN_MODEL_KIMI_MOONSHOT_V1,
+    CN_MODEL_QWEN_TURBO,
+};
 use crate::openhuman::config::schema::cloud_providers::AuthStyle;
 use crate::openhuman::config::Config;
 use crate::openhuman::credentials::AuthService;
@@ -31,6 +39,9 @@ use crate::openhuman::providers::ProviderRuntimeOptions;
 pub const PROVIDER_OPENHUMAN: &str = "openhuman";
 /// Prefix for Ollama-local providers: `"ollama:<model>"`.
 pub const OLLAMA_PROVIDER_PREFIX: &str = "ollama:";
+/// Prefix for China-hosted providers: `"cn:<provider>"` or `"cn:<provider>:<model>"`.
+/// Supported providers: deepseek, doubao, qwen, moonshot.
+pub const CN_PROVIDER_PREFIX: &str = "cn:";
 
 /// Auth-profile storage key for a slug-keyed provider.
 ///
@@ -62,6 +73,12 @@ pub fn provider_for_role(role: &str, config: &Config) -> String {
     };
     let s = opt.unwrap_or("").trim();
     if s.is_empty() || s == "cloud" {
+        // OpenHuman-ZN: when china_models is configured with no explicit
+        // provider override, default to cn:deepseek so domestic users
+        // don't need a backend JWT session to start chatting.
+        if config.china_models.is_some() {
+            return "cn:deepseek".to_string();
+        }
         PROVIDER_OPENHUMAN.to_string()
     } else {
         s.to_string()
@@ -116,6 +133,25 @@ pub fn create_chat_provider_from_string(
             );
         }
         return make_ollama_provider(model.trim(), config);
+    }
+
+    // CN grammar: "cn:<provider>" or "cn:<provider>:<model>"
+    if let Some(rest) = p.strip_prefix(CN_PROVIDER_PREFIX) {
+        let rest = rest.trim();
+        if rest.is_empty() {
+            anyhow::bail!(
+                "[chat-factory] 'cn:' requires a provider name (deepseek/doubao/qwen/moonshot)"
+            );
+        }
+        let (provider_name, model_id) = match rest.find(':') {
+            Some(pos) => {
+                let name = rest[..pos].trim();
+                let model = rest[pos + 1..].trim();
+                (name, if model.is_empty() { None } else { Some(model) })
+            }
+            None => (rest, None),
+        };
+        return make_china_provider(provider_name, model_id, config);
     }
 
     // New grammar: "<slug>:<model>"
@@ -285,6 +321,115 @@ fn make_cloud_provider_by_slug(
             Ok((p, effective_model))
         }
     }
+}
+
+/// Build a provider from `[china_models]` config section.
+///
+/// Provider names: `deepseek`, `doubao`, `qwen`, `moonshot`.
+/// Default models are used when `explicit_model` is `None`.
+fn make_china_provider(
+    provider_name: &str,
+    explicit_model: Option<&str>,
+    config: &Config,
+) -> anyhow::Result<(Box<dyn Provider>, String)> {
+    let cm = config.china_models.as_ref().ok_or_else(|| {
+        anyhow::anyhow!(
+            "[chat-factory] no [china_models] section in config.toml — \
+             add [china_models.{provider_name}] with api_key to use cn: providers"
+        )
+    })?;
+
+    let (api_key, base_url, default_model) = match provider_name {
+        "deepseek" => {
+            if !cm.deepseek.enabled {
+                anyhow::bail!("[chat-factory] cn provider 'deepseek' is disabled in config");
+            }
+            let key = cm.deepseek.api_key.as_deref().unwrap_or("");
+            let url = cm
+                .deepseek
+                .base_url
+                .as_deref()
+                .unwrap_or(CN_API_BASE_DEEPSEEK);
+            (key, url, CN_MODEL_DEEPSEEK_CHAT)
+        }
+        "doubao" => {
+            if !cm.doubao.enabled {
+                anyhow::bail!("[chat-factory] cn provider 'doubao' is disabled in config");
+            }
+            let key = cm.doubao.api_key.as_deref().unwrap_or("");
+            let url = cm.doubao.base_url.as_deref().unwrap_or(CN_API_BASE_DOUBAO);
+            (key, url, CN_MODEL_DOUBAO_PRO_32K)
+        }
+        "qwen" => {
+            if !cm.qwen.enabled {
+                anyhow::bail!("[chat-factory] cn provider 'qwen' is disabled in config");
+            }
+            let key = cm.qwen.api_key.as_deref().unwrap_or("");
+            let url = cm.qwen.base_url.as_deref().unwrap_or(CN_API_BASE_QWEN);
+            (key, url, CN_MODEL_QWEN_TURBO)
+        }
+        "moonshot" => {
+            if !cm.moonshot.enabled {
+                anyhow::bail!("[chat-factory] cn provider 'moonshot' is disabled in config");
+            }
+            let key = cm.moonshot.api_key.as_deref().unwrap_or("");
+            let url = cm
+                .moonshot
+                .base_url
+                .as_deref()
+                .unwrap_or(CN_API_BASE_MOONSHOT);
+            (key, url, CN_MODEL_KIMI_MOONSHOT_V1)
+        }
+        other => anyhow::bail!(
+            "[chat-factory] unknown cn provider '{}'. Supported: deepseek, doubao, qwen, moonshot",
+            other
+        ),
+    };
+
+    // When no explicit key in china_models config, fall back to the
+    // encrypted auth-profiles store (same as cloud_providers path).
+    // This lets users enable [china_models] as a routing gate without
+    // duplicating API keys in plaintext config.
+    let resolved_key = if api_key.is_empty() {
+        let stored = lookup_key_for_slug(provider_name, config).unwrap_or_default();
+        if stored.is_empty() {
+            anyhow::bail!(
+                "[chat-factory] no API key for cn provider '{}'. \
+                 Set [china_models].{}.api_key in config.toml or add the key \
+                 via Settings → API Keys in the app",
+                provider_name,
+                provider_name
+            );
+        }
+        stored
+    } else {
+        api_key.to_string()
+    };
+
+    let model = explicit_model.unwrap_or(default_model).to_string();
+
+    // Only append /v1 when the base URL doesn't already carry a versioned
+    // API path (e.g. /v1, /api/v3, /compatible-mode/v1).  chat_completions_url()
+    // handles the final /chat/completions suffix.
+    let has_api_version = {
+        let trimmed = base_url.trim_end_matches('/');
+        trimmed.ends_with("/v1") || trimmed.ends_with("/v3") || trimmed.contains("/v1/")
+    };
+    let endpoint = if has_api_version {
+        base_url.trim_end_matches('/').to_string()
+    } else {
+        format!("{}/v1", base_url.trim_end_matches('/'))
+    };
+
+    log::info!(
+        "[providers][chat-factory] cn provider={} model={} endpoint_host={}",
+        provider_name,
+        model,
+        redact_endpoint(&endpoint)
+    );
+
+    let p = make_openai_compatible_provider(&endpoint, &resolved_key, CompatAuthStyle::Bearer)?;
+    Ok((p, model))
 }
 
 /// Fetch the bearer token for a slug from the workspace `auth-profiles.json`.

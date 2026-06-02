@@ -8,6 +8,79 @@ use crate::openhuman::security::SecurityPolicy;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+/// Default allowed domains for OpenHuman-ZN (Chinese deployment) when
+/// `china_models` is configured but no explicit `http_request.allowed_domains`
+/// are set. Covers weather, search, and common Chinese web services so
+/// `web_fetch` / `http_request` work without a backend session.
+///
+/// These are domestic-only — no international services that would be
+/// unreachable from within China without a proxy/VPN.
+const CN_DEFAULT_ALLOWED_DOMAINS: &[&str] = &[
+    // Weather (domestic, no API key needed)
+    "www.weather.com.cn",
+    "weather.cma.cn",
+    "d1.weather.com.cn",
+    // Search & knowledge
+    "www.baidu.com",
+    "baike.baidu.com",
+    "www.sogou.com",
+    // Maps / location
+    "restapi.amap.com",
+    "api.map.baidu.com",
+    // News & info
+    "news.baidu.com",
+    "www.zhihu.com",
+];
+
+/// Weather domains always available — agent can answer weather queries
+/// via `web_fetch` even without backend or china_models config.
+/// International services included here for global users; China deployments
+/// use the domestic-only list from `CN_DEFAULT_ALLOWED_DOMAINS`.
+const WEATHER_DOMAINS: &[&str] = &[
+    "wttr.in",
+    "api.openweathermap.org",
+    "weather.cma.cn",
+    "www.weather.com.cn",
+];
+
+/// China-only weather domains used when `china_models` is active.
+/// International APIs are excluded — they are unreachable from within
+/// China without a proxy/VPN.
+const CN_WEATHER_DOMAINS: &[&str] = &["www.weather.com.cn", "weather.cma.cn", "d1.weather.com.cn"];
+
+/// Resolve effective allowed domains for network tools.
+///
+/// Weather domains are always included so `web_fetch` can answer real-time
+/// weather queries. When `china_models` is configured, domestic-only weather
+/// domains replace the international defaults (which are unreachable from
+/// within China without a proxy/VPN), and additional Chinese-friendly
+/// defaults (search, maps, news) are injected.
+fn effective_allowed_domains(config: &Config, explicit: &[String]) -> Vec<String> {
+    if !explicit.is_empty() {
+        return explicit.to_vec();
+    }
+    let weather: &[&str] = if config.china_models.is_some() {
+        CN_WEATHER_DOMAINS
+    } else {
+        WEATHER_DOMAINS
+    };
+    let mut domains: Vec<String> = weather.iter().map(|d| d.to_string()).collect();
+    if config.china_models.is_some() {
+        for d in CN_DEFAULT_ALLOWED_DOMAINS {
+            domains.push(d.to_string());
+        }
+        tracing::debug!(
+            count = domains.len(),
+            "[tools::ops] china_models active — using CN-only domains"
+        );
+    } else {
+        tracing::debug!("[tools::ops] weather domains available (china_models not configured)");
+    }
+    domains.sort_unstable();
+    domains.dedup();
+    domains
+}
+
 /// Create the default tool registry
 pub fn default_tools(security: Arc<SecurityPolicy>) -> Vec<Box<dyn Tool>> {
     default_tools_with_runtime(security, Arc::new(NativeRuntime::new()))
@@ -189,9 +262,10 @@ pub fn all_tools_with_runtime(
     // + `security` still gate which hosts are reachable; there is no
     // enable flag because every session needs basic HTTP as a baseline
     // capability.
+    let allowed_domains = effective_allowed_domains(root_config, &http_config.allowed_domains);
     tools.push(Box::new(HttpRequestTool::new(
         security.clone(),
-        http_config.allowed_domains.clone(),
+        allowed_domains.clone(),
         http_config.max_response_size,
         http_config.timeout_secs,
     )));
@@ -202,7 +276,7 @@ pub fn all_tools_with_runtime(
     // `http_request` only when you need richer HTTP semantics.
     tools.push(Box::new(WebFetchTool::new(
         security.clone(),
-        http_config.allowed_domains.clone(),
+        allowed_domains.clone(),
         Some(http_config.max_response_size),
         Some(http_config.timeout_secs),
     )));
@@ -212,7 +286,7 @@ pub fn all_tools_with_runtime(
     // under `<workspace>/<curl.dest_subdir>`.
     tools.push(Box::new(CurlTool::new(
         security.clone(),
-        http_config.allowed_domains.clone(),
+        allowed_domains.clone(),
         workspace_dir.to_path_buf(),
         root_config.curl.dest_subdir.clone(),
         root_config.curl.max_download_bytes,
@@ -233,15 +307,18 @@ pub fn all_tools_with_runtime(
         tracing::debug!("[gitbooks] registered gitbooks_search + gitbooks_get_page");
     }
 
-    // Web search — always registered. Result/timeout budget
-    // knobs still come from `config.web_search`, but there is no
-    // enable flag: every session needs research as a baseline
-    // capability.
+    // Web search — always registered. When no backend integration client
+    // is available (e.g. local Chinese deployment without backend session),
+    // the tool returns a clear error telling the model to use web_fetch
+    // with allowed_domains instead.
+    let integration_client = crate::openhuman::integrations::build_client(root_config);
+    let has_client = integration_client.is_some();
     tools.push(Box::new(WebSearchTool::new(
-        crate::openhuman::integrations::build_client(root_config),
+        integration_client,
         root_config.web_search.max_results,
         root_config.web_search.timeout_secs,
     )));
+    tracing::debug!(has_client, "[tools::ops] web_search registered");
 
     // Seltz — direct-API web search, gated on `seltz.enabled` (auto-set
     // when `SELTZ_API_KEY` env var is present). Unlike the backend-proxied

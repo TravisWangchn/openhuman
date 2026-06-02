@@ -94,6 +94,7 @@ impl Provider for VisionProvider {
         Ok(ChatResponse {
             text: Some("vision-ok".to_string()),
             tool_calls: Vec::new(),
+            reasoning_content: None,
             usage: None,
         })
     }

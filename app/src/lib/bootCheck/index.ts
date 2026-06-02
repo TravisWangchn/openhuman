@@ -13,10 +13,10 @@
  */
 import debug from 'debug';
 
-import { clearCoreRpcUrlCache } from '../../services/coreRpcClient';
+import { clearCoreRpcTokenCache, clearCoreRpcUrlCache } from '../../services/coreRpcClient';
 import type { CoreMode } from '../../store/coreModeSlice';
 import { APP_VERSION } from '../../utils/config';
-import { storeRpcUrl } from '../../utils/configPersistence';
+import { storeCoreToken, storeRpcUrl } from '../../utils/configPersistence';
 
 const log = debug('boot-check');
 const logError = debug('boot-check:error');
@@ -31,7 +31,7 @@ export type BootCheckResult =
   | { kind: 'outdatedLocal' }
   | { kind: 'outdatedCloud' }
   | { kind: 'noVersionMethod' }
-  | { kind: 'unreachable'; reason: string };
+  | { kind: 'unreachable'; reason: string; isLocalhostCloudUrl?: boolean };
 
 // ---------------------------------------------------------------------------
 // Transport interface (injectable for tests)
@@ -249,10 +249,15 @@ export async function runBootCheck(
   // ------------------------------------------------------------------
   let safeUrl: string | null = null;
   let safeOrigin: string | null = null;
+  let isLocalhost = false;
   try {
     const parsed = new URL(mode.url);
     safeOrigin = parsed.origin;
     safeUrl = `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
+    isLocalhost =
+      parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '::1';
   } catch {
     // safeUrl/safeOrigin stay null
   }
@@ -262,8 +267,21 @@ export async function runBootCheck(
   }
   log('[boot-check] cloud mode — origin=%s', safeOrigin ?? '<invalid-origin>');
   storeRpcUrl(safeUrl);
+  if (mode.token) {
+    storeCoreToken(mode.token);
+    log('[boot-check] cloud RPC token stored from mode');
+  }
   clearCoreRpcUrlCache();
-  log('[boot-check] cloud RPC URL stored and cache cleared');
+  clearCoreRpcTokenCache();
+  log('[boot-check] cloud RPC URL + token caches cleared');
+
+  // Localhost cloud URL → local dev/debugging; skip version check.
+  // Version mismatch between source frontend and built core binary is
+  // expected, and the user has already verified the core is running.
+  if (isLocalhost) {
+    log('[boot-check] cloud mode — localhost URL, skipping version check');
+    return { kind: 'match' };
+  }
 
   const versionResult = await checkVersion(callRpc);
   if (versionResult === 'match') {
@@ -276,6 +294,14 @@ export async function runBootCheck(
   }
   if (versionResult === 'unreachable') {
     logError('[boot-check] cloud mode — core unreachable');
+    if (isLocalhost) {
+      return {
+        kind: 'unreachable',
+        reason:
+          'Could not reach cloud core at localhost. If this is the desktop app, switch to Local mode instead. If using a local core process, make sure it is running.',
+        isLocalhostCloudUrl: true,
+      };
+    }
     return { kind: 'unreachable', reason: 'Could not reach cloud core' };
   }
   log('[boot-check] cloud mode — version outdated');

@@ -45,6 +45,12 @@ interface AppStateSnapshotResult {
     localAi: LocalAiStatus;
     autocomplete: AutocompleteStatus;
     service: ServiceStatus;
+    chinaRouting?: {
+      configured: boolean;
+      activeProviders: string[];
+      primaryModel: string;
+      autoFallback: boolean;
+    };
   };
 }
 

@@ -1,5 +1,5 @@
 use super::url_guard::{normalize_allowed_domains, validate_url};
-use crate::openhuman::security::SecurityPolicy;
+use crate::openhuman::security::{SecurityPolicy, ToolOperation};
 use crate::openhuman::tools::traits::{Tool, ToolResult};
 use async_trait::async_trait;
 use serde_json::json;
@@ -168,12 +168,11 @@ impl Tool for HttpRequestTool {
         let headers_val = args.get("headers").cloned().unwrap_or(json!({}));
         let body = args.get("body").and_then(|v| v.as_str());
 
-        if !self.security.can_act() {
-            return Ok(ToolResult::error("Action blocked: autonomy is read-only"));
-        }
-
-        if !self.security.record_action() {
-            return Ok(ToolResult::error("Action blocked: rate limit exceeded"));
+        if let Err(e) = self
+            .security
+            .enforce_tool_operation(ToolOperation::Act, self.name())
+        {
+            return Ok(ToolResult::error(e));
         }
 
         let url = match self.validate_url(url) {

@@ -11,6 +11,8 @@ pub struct ChatMessage {
     pub id: Option<String>,
     pub role: String,
     pub content: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_content: Option<String>,
     #[serde(default, skip_serializing)]
     pub extra_metadata: Option<serde_json::Value>,
 }
@@ -21,6 +23,7 @@ impl ChatMessage {
             id: None,
             role: "system".into(),
             content: content.into(),
+            reasoning_content: None,
             extra_metadata: None,
         }
     }
@@ -30,6 +33,7 @@ impl ChatMessage {
             id: None,
             role: "user".into(),
             content: content.into(),
+            reasoning_content: None,
             extra_metadata: None,
         }
     }
@@ -39,6 +43,20 @@ impl ChatMessage {
             id: None,
             role: "assistant".into(),
             content: content.into(),
+            reasoning_content: None,
+            extra_metadata: None,
+        }
+    }
+
+    pub fn assistant_with_reasoning(
+        content: impl Into<String>,
+        reasoning_content: impl Into<String>,
+    ) -> Self {
+        Self {
+            id: None,
+            role: "assistant".into(),
+            content: content.into(),
+            reasoning_content: Some(reasoning_content.into()),
             extra_metadata: None,
         }
     }
@@ -48,6 +66,7 @@ impl ChatMessage {
             id: None,
             role: "tool".into(),
             content: content.into(),
+            reasoning_content: None,
             extra_metadata: None,
         }
     }
@@ -89,6 +108,10 @@ pub struct ChatResponse {
     pub tool_calls: Vec<ToolCall>,
     /// Token usage info from the provider (if available).
     pub usage: Option<UsageInfo>,
+    /// Reasoning/thinking content (e.g. DeepSeek v4 thinking mode).
+    /// Must be preserved across turns so the model can reference its
+    /// prior chain-of-thought in subsequent requests.
+    pub reasoning_content: Option<String>,
 }
 
 impl ChatResponse {
@@ -160,6 +183,8 @@ pub enum ConversationMessage {
     AssistantToolCalls {
         text: Option<String>,
         tool_calls: Vec<ToolCall>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reasoning_content: Option<String>,
     },
     /// Results of tool executions, fed back to the LLM.
     ToolResults(Vec<ToolResultMessage>),
@@ -439,6 +464,7 @@ pub trait Provider: Send + Sync {
                     text: Some(text),
                     tool_calls: Vec::new(),
                     usage: None,
+                    reasoning_content: None,
                 });
             }
         }
@@ -457,6 +483,7 @@ pub trait Provider: Send + Sync {
             text: Some(text),
             tool_calls: Vec::new(),
             usage: None,
+            reasoning_content: None,
         })
     }
 
@@ -491,6 +518,7 @@ pub trait Provider: Send + Sync {
             text: Some(text),
             tool_calls: Vec::new(),
             usage: None,
+            reasoning_content: None,
         })
     }
 

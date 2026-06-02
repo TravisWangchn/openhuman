@@ -37,6 +37,7 @@ impl Provider for StaticProvider {
             Ok(ChatResponse {
                 text: Some("done".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             })
         })
@@ -124,6 +125,7 @@ fn sanitizers_and_tool_call_helpers_cover_fallback_paths() {
     let response = crate::openhuman::providers::ChatResponse {
         text: Some(String::new()),
         tool_calls: vec![],
+        reasoning_content: None,
         usage: None,
     };
     let persisted = Agent::persisted_tool_calls_for_history(&response, &calls, 2);
@@ -134,10 +136,12 @@ fn sanitizers_and_tool_call_helpers_cover_fallback_paths() {
         ConversationMessage::AssistantToolCalls {
             text: None,
             tool_calls: vec![],
+            reasoning_content: None,
         },
         ConversationMessage::AssistantToolCalls {
             text: None,
             tool_calls: vec![],
+            reasoning_content: None,
         },
     ];
     assert_eq!(Agent::count_iterations(&history), 3);
@@ -210,6 +214,7 @@ async fn run_single_publishes_completed_and_error_events() {
         response: Mutex::new(Some(Ok(ChatResponse {
             text: Some("ok".into()),
             tool_calls: vec![],
+            reasoning_content: None,
             usage: Some(UsageInfo::default()),
         }))),
     });
@@ -310,6 +315,7 @@ fn helper_paths_cover_no_overlap_native_calls_and_truncation() {
     let response = crate::openhuman::providers::ChatResponse {
         text: Some(String::new()),
         tool_calls: native_calls.clone(),
+        reasoning_content: None,
         usage: None,
     };
     let persisted = Agent::persisted_tool_calls_for_history(&response, &[], 0);

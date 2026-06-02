@@ -8,6 +8,26 @@ pub fn bearer_authorization_value(token: &str) -> String {
     format!("Bearer {}", token.trim())
 }
 
+/// Like [`get_session_token`] but falls back to the `OPENHUMAN_DEV_JWT_TOKEN`
+/// env var when the stored session is empty. This lets local dev / offline
+/// sessions use voice transcription and other backend-proxied features without
+/// going through the full OAuth flow.
+pub fn get_session_token_with_dev_fallback(
+    config: &crate::openhuman::config::Config,
+) -> Result<Option<String>, String> {
+    let token = get_session_token(config)?;
+    if token.as_ref().map_or(true, |t| t.trim().is_empty()) {
+        if let Ok(dev) = std::env::var("OPENHUMAN_DEV_JWT_TOKEN") {
+            let trimmed = dev.trim().to_string();
+            if !trimmed.is_empty() {
+                log::debug!("[jwt] using OPENHUMAN_DEV_JWT_TOKEN fallback");
+                return Ok(Some(trimmed));
+            }
+        }
+    }
+    Ok(token)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

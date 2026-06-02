@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import debug from 'debug';
 
 import { dispatchLocalAiMethod } from '../lib/ai/localCoreAiMemory';
-import { CORE_RPC_TIMEOUT_MS, CORE_RPC_URL } from '../utils/config';
+import { CORE_RPC_TIMEOUT_MS, CORE_RPC_TOKEN, CORE_RPC_URL } from '../utils/config';
 import { getStoredCoreToken, peekStoredRpcUrl } from '../utils/configPersistence';
 import { sanitizeError } from '../utils/sanitize';
 import { isTauri as coreIsTauri } from '../utils/tauriCommands/common';
@@ -138,6 +138,48 @@ function dispatchAuthExpired(method: string): void {
   }
 }
 
+const AUTH_CHECK_METHODS = new Set([
+  'openhuman.app_state_snapshot',
+  'openhuman.auth_get_me',
+  'openhuman.threads_generate_title',
+  'openhuman.threads_message_append',
+  'openhuman.threads_messages_list',
+  'openhuman.threads_create_new',
+  'openhuman.voice_tts',
+  'openhuman.voice_tts_dispatch',
+  'openhuman.voice_reply_synthesize',
+  'openhuman.voice_transcribe_bytes',
+  'openhuman.voice_status',
+  'openhuman.usage_get_state',
+  // Skills page mount RPCs — prevent auth-expired cascade when core lacks
+  // backend session (dev / local / offline).
+  'openhuman.channels_list',
+  'openhuman.channels_status',
+  'openhuman.composio_list_toolkits',
+  'openhuman.composio_list_connections',
+  'openhuman.composio_authorize',
+  'openhuman.skills_list',
+  // Intelligence page mount RPCs
+  'ai.sessions_load_index',
+  'openhuman.memory_ingestion_status',
+]);
+
+let suppressAuthExpiredUntil = 0;
+
+export function extendAuthExpiredSuppression(durationMs: number): void {
+  suppressAuthExpiredUntil = Math.max(suppressAuthExpiredUntil, Date.now() + durationMs);
+}
+
+export function isAuthExpiredSuppressed(): boolean {
+  return Date.now() < suppressAuthExpiredUntil;
+}
+
+function shouldDispatchAuthExpired(method: string): boolean {
+  if (AUTH_CHECK_METHODS.has(method)) return false;
+  if (isAuthExpiredSuppressed()) return false;
+  return true;
+}
+
 /**
  * Invalidate the cached core RPC URL so the next call to getCoreRpcUrl()
  * re-resolves from the user-configured or environment-default value.
@@ -262,6 +304,18 @@ export async function getCoreRpcUrl(): Promise<string> {
 async function getCoreRpcToken(): Promise<string | null> {
   if (didResolveCoreRpcToken) return resolvedCoreRpcToken;
 
+  // Non-Tauri: prefer VITE_OPENHUMAN_CORE_TOKEN env var over localStorage,
+  // so dev builds always use the token from .env.local.
+  if (!coreIsTauri()) {
+    const viteToken = CORE_RPC_TOKEN?.trim();
+    if (viteToken) {
+      resolvedCoreRpcToken = viteToken;
+      didResolveCoreRpcToken = true;
+      coreRpcLog('core RPC token loaded from VITE_OPENHUMAN_CORE_TOKEN');
+      return resolvedCoreRpcToken;
+    }
+  }
+
   const storedToken = getStoredCoreToken();
   if (storedToken) {
     resolvedCoreRpcToken = storedToken;
@@ -270,7 +324,9 @@ async function getCoreRpcToken(): Promise<string | null> {
     return resolvedCoreRpcToken;
   }
 
-  if (!coreIsTauri()) return null;
+  if (!coreIsTauri()) {
+    return null;
+  }
   if (resolvingCoreRpcToken) return resolvingCoreRpcToken;
 
   resolvingCoreRpcToken = (async () => {
@@ -389,7 +445,8 @@ export async function callCoreRpc<T>({
       const text = await response.text();
       const httpMessage = `Core RPC HTTP ${response.status}: ${text || response.statusText}`;
       const kind = classifyRpcError(text || response.statusText, response.status);
-      if (kind === 'auth_expired') dispatchAuthExpired(payload.method);
+      if (kind === 'auth_expired' && shouldDispatchAuthExpired(payload.method))
+        dispatchAuthExpired(payload.method);
       throw new CoreRpcError(httpMessage, kind, response.status);
     }
 
@@ -403,7 +460,8 @@ export async function callCoreRpc<T>({
       });
       const rawMessage = json.error.message || 'Core RPC returned an error';
       const kind = classifyRpcError(rawMessage, undefined, json.error.data);
-      if (kind === 'auth_expired') dispatchAuthExpired(payload.method);
+      if (kind === 'auth_expired' && shouldDispatchAuthExpired(payload.method))
+        dispatchAuthExpired(payload.method);
       throw new CoreRpcError(rawMessage, kind, undefined, json.error.data);
     }
     if (!Object.prototype.hasOwnProperty.call(json, 'result')) {

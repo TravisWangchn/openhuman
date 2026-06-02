@@ -280,6 +280,7 @@ async fn run_tool_call_loop_returns_max_iterations_error() {
     provider.push_forced_response(ChatResponse {
         text: Some("<tool_call>{\"name\":\"echo\",\"arguments\":{}}</tool_call>".into()),
         tool_calls: vec![],
+        reasoning_content: None,
         usage: None,
     });
 

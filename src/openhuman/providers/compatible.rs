@@ -219,7 +219,8 @@ impl OpenAiCompatibleProvider {
             }
 
             let builder = Client::builder()
-                .use_rustls_tls()
+                .use_native_tls()
+                .no_proxy()
                 .timeout(std::time::Duration::from_secs(120))
                 .connect_timeout(std::time::Duration::from_secs(10))
                 .default_headers(headers);
@@ -235,7 +236,8 @@ impl OpenAiCompatibleProvider {
         }
 
         let builder = Client::builder()
-            .use_rustls_tls()
+            .use_native_tls()
+            .no_proxy()
             .timeout(std::time::Duration::from_secs(120))
             .connect_timeout(std::time::Duration::from_secs(10));
         let builder = crate::openhuman::config::apply_runtime_proxy_to_builder(
@@ -490,6 +492,7 @@ impl OpenAiCompatibleProvider {
                                 return NativeMessage {
                                     role: "assistant".to_string(),
                                     content,
+                                    reasoning_content: message.reasoning_content.clone(),
                                     tool_call_id: None,
                                     tool_calls: Some(tool_calls),
                                 };
@@ -515,6 +518,7 @@ impl OpenAiCompatibleProvider {
                         return NativeMessage {
                             role: "tool".to_string(),
                             content,
+                            reasoning_content: message.reasoning_content.clone(),
                             tool_call_id,
                             tool_calls: None,
                         };
@@ -524,6 +528,7 @@ impl OpenAiCompatibleProvider {
                 NativeMessage {
                     role: message.role.clone(),
                     content: Some(message.content.clone()),
+                    reasoning_content: message.reasoning_content.clone(),
                     tool_call_id: None,
                     tool_calls: None,
                 }
@@ -571,6 +576,7 @@ impl OpenAiCompatibleProvider {
             .map(|c| c.message)
             .ok_or_else(|| anyhow::anyhow!("No choices in response from {}", provider_name))?;
 
+        let reasoning_content = message.reasoning_content.clone();
         let mut text = message.effective_content_optional();
         let mut tool_calls = message
             .tool_calls
@@ -620,6 +626,7 @@ impl OpenAiCompatibleProvider {
             text,
             tool_calls,
             usage,
+            reasoning_content,
         })
     }
 
@@ -1410,6 +1417,7 @@ impl Provider for OpenAiCompatibleProvider {
                     text: Some(text),
                     tool_calls: vec![],
                     usage: None,
+                    reasoning_content: None,
                 });
             }
         };
@@ -1427,6 +1435,7 @@ impl Provider for OpenAiCompatibleProvider {
             .next()
             .ok_or_else(|| anyhow::anyhow!("No response from {}", self.name))?;
 
+        let reasoning_content = choice.message.reasoning_content.clone();
         let text = choice.message.effective_content_optional();
         let tool_calls = choice
             .message
@@ -1449,6 +1458,7 @@ impl Provider for OpenAiCompatibleProvider {
             text,
             tool_calls,
             usage,
+            reasoning_content,
         })
     }
 
@@ -1548,6 +1558,7 @@ impl Provider for OpenAiCompatibleProvider {
                             text: Some(text),
                             tool_calls: vec![],
                             usage: None,
+                            reasoning_content: None,
                         })
                         .map_err(|responses_err| {
                             let fb = super::format_anyhow_chain(&responses_err);
@@ -1577,6 +1588,7 @@ impl Provider for OpenAiCompatibleProvider {
                     text: Some(text),
                     tool_calls: vec![],
                     usage: None,
+                    reasoning_content: None,
                 });
             }
 
@@ -1588,6 +1600,7 @@ impl Provider for OpenAiCompatibleProvider {
                         text: Some(text),
                         tool_calls: vec![],
                         usage: None,
+                        reasoning_content: None,
                     })
                     .map_err(|responses_err| {
                         let fb = super::format_anyhow_chain(&responses_err);

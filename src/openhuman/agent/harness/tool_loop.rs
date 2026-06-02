@@ -335,116 +335,122 @@ pub(crate) async fn run_tool_call_loop(
             let _ = handle.await;
         }
 
-        let (response_text, parsed_text, tool_calls, assistant_history_content, native_tool_calls) =
-            match chat_result {
-                Ok(resp) => {
-                    // Update context guard with token usage from this response.
-                    if let Some(ref usage) = resp.usage {
-                        context_guard.update_usage(usage);
-                        turn_cost.add_call(model, usage);
-                        tracing::debug!(
-                            iteration,
-                            input_tokens = usage.input_tokens,
-                            output_tokens = usage.output_tokens,
-                            context_window = usage.context_window,
-                            cumulative_usd = turn_cost.total_usd(),
-                            "[agent_loop] LLM response received"
-                        );
-                        if let Some(ref sink) = on_progress {
-                            let event = AgentProgress::TurnCostUpdated {
-                                model: model.to_string(),
-                                iteration: (iteration + 1) as u32,
-                                input_tokens: turn_cost.input_tokens,
-                                output_tokens: turn_cost.output_tokens,
-                                cached_input_tokens: turn_cost.cached_input_tokens,
-                                total_usd: turn_cost.total_usd(),
-                            };
-                            if let Err(e) = sink.send(event).await {
-                                log::warn!(
-                                    "[agent_loop] progress sink closed at TurnCostUpdated: {e}"
-                                );
-                            }
-                        }
-                    } else {
-                        tracing::debug!(
-                            iteration,
-                            "[agent_loop] LLM response received (no usage info)"
-                        );
-                    }
-
-                    let response_text = resp.text_or_empty().to_string();
-                    let mut calls = parse_structured_tool_calls(&resp.tool_calls);
-                    let mut parsed_text = String::new();
-
-                    if calls.is_empty() {
-                        let (fallback_text, fallback_calls) = parse_tool_calls(&response_text);
-                        if !fallback_text.is_empty() {
-                            parsed_text = fallback_text;
-                        }
-                        calls = fallback_calls;
-                    }
-
+        let (
+            response_text,
+            parsed_text,
+            tool_calls,
+            assistant_history_content,
+            native_tool_calls,
+            reasoning_content,
+        ) = match chat_result {
+            Ok(resp) => {
+                // Update context guard with token usage from this response.
+                if let Some(ref usage) = resp.usage {
+                    context_guard.update_usage(usage);
+                    turn_cost.add_call(model, usage);
                     tracing::debug!(
                         iteration,
-                        native_tool_calls = resp.tool_calls.len(),
-                        parsed_tool_calls = calls.len(),
-                        "[agent_loop] tool calls parsed"
+                        input_tokens = usage.input_tokens,
+                        output_tokens = usage.output_tokens,
+                        context_window = usage.context_window,
+                        cumulative_usd = turn_cost.total_usd(),
+                        "[agent_loop] LLM response received"
                     );
-
-                    // Preserve native tool call IDs in assistant history so role=tool
-                    // follow-up messages can reference the exact call id.
-                    let assistant_history_content = if resp.tool_calls.is_empty() {
-                        response_text.clone()
-                    } else {
-                        build_native_assistant_history(&response_text, &resp.tool_calls)
-                    };
-
-                    let native_calls = resp.tool_calls;
-                    (
-                        response_text,
-                        parsed_text,
-                        calls,
-                        assistant_history_content,
-                        native_calls,
-                    )
-                }
-                Err(e) => {
-                    // Transient upstream failures (rate-limit, gateway 5xx, "no
-                    // healthy upstream", etc.) are already classified + retried
-                    // by reliable.rs and produce an aggregate Sentry event only
-                    // when every provider/model is exhausted. Reporting each
-                    // per-iteration provider_chat error here duplicates the
-                    // signal and floods Sentry — see OPENHUMAN-TAURI-3Y/3Z
-                    // (~46 events combined) and the underlying TAURI-2E/84/T
-                    // (~3300 events from raw per-attempt 429/503/504 reports).
-                    let transient = crate::openhuman::providers::reliable::is_rate_limited(&e)
-                        || crate::openhuman::providers::reliable::is_upstream_unhealthy(&e);
-                    if transient {
-                        tracing::warn!(
-                            domain = "agent",
-                            operation = "provider_chat",
-                            provider = provider_name,
-                            model = model,
-                            iteration = iteration + 1,
-                            error = %format!("{e:#}"),
-                            "[agent] transient provider_chat failure — retried upstream; \
-                             aggregated all-providers-exhausted will report if applicable"
-                        );
-                    } else {
-                        crate::core::observability::report_error_or_expected(
-                            &e,
-                            "agent",
-                            "provider_chat",
-                            &[
-                                ("provider", provider_name),
-                                ("model", model),
-                                ("iteration", &(iteration + 1).to_string()),
-                            ],
-                        );
+                    if let Some(ref sink) = on_progress {
+                        let event = AgentProgress::TurnCostUpdated {
+                            model: model.to_string(),
+                            iteration: (iteration + 1) as u32,
+                            input_tokens: turn_cost.input_tokens,
+                            output_tokens: turn_cost.output_tokens,
+                            cached_input_tokens: turn_cost.cached_input_tokens,
+                            total_usd: turn_cost.total_usd(),
+                        };
+                        if let Err(e) = sink.send(event).await {
+                            log::warn!("[agent_loop] progress sink closed at TurnCostUpdated: {e}");
+                        }
                     }
-                    return Err(e);
+                } else {
+                    tracing::debug!(
+                        iteration,
+                        "[agent_loop] LLM response received (no usage info)"
+                    );
                 }
-            };
+
+                let response_text = resp.text_or_empty().to_string();
+                let mut calls = parse_structured_tool_calls(&resp.tool_calls);
+                let mut parsed_text = String::new();
+
+                if calls.is_empty() {
+                    let (fallback_text, fallback_calls) = parse_tool_calls(&response_text);
+                    if !fallback_text.is_empty() {
+                        parsed_text = fallback_text;
+                    }
+                    calls = fallback_calls;
+                }
+
+                tracing::debug!(
+                    iteration,
+                    native_tool_calls = resp.tool_calls.len(),
+                    parsed_tool_calls = calls.len(),
+                    "[agent_loop] tool calls parsed"
+                );
+
+                // Preserve native tool call IDs in assistant history so role=tool
+                // follow-up messages can reference the exact call id.
+                let assistant_history_content = if resp.tool_calls.is_empty() {
+                    response_text.clone()
+                } else {
+                    build_native_assistant_history(&response_text, &resp.tool_calls)
+                };
+
+                let native_calls = resp.tool_calls;
+                let reasoning_content = resp.reasoning_content.clone();
+                (
+                    response_text,
+                    parsed_text,
+                    calls,
+                    assistant_history_content,
+                    native_calls,
+                    reasoning_content,
+                )
+            }
+            Err(e) => {
+                // Transient upstream failures (rate-limit, gateway 5xx, "no
+                // healthy upstream", etc.) are already classified + retried
+                // by reliable.rs and produce an aggregate Sentry event only
+                // when every provider/model is exhausted. Reporting each
+                // per-iteration provider_chat error here duplicates the
+                // signal and floods Sentry — see OPENHUMAN-TAURI-3Y/3Z
+                // (~46 events combined) and the underlying TAURI-2E/84/T
+                // (~3300 events from raw per-attempt 429/503/504 reports).
+                let transient = crate::openhuman::providers::reliable::is_rate_limited(&e)
+                    || crate::openhuman::providers::reliable::is_upstream_unhealthy(&e);
+                if transient {
+                    tracing::warn!(
+                        domain = "agent",
+                        operation = "provider_chat",
+                        provider = provider_name,
+                        model = model,
+                        iteration = iteration + 1,
+                        error = %format!("{e:#}"),
+                        "[agent] transient provider_chat failure — retried upstream; \
+                         aggregated all-providers-exhausted will report if applicable"
+                    );
+                } else {
+                    crate::core::observability::report_error_or_expected(
+                        &e,
+                        "agent",
+                        "provider_chat",
+                        &[
+                            ("provider", provider_name),
+                            ("model", model),
+                            ("iteration", &(iteration + 1).to_string()),
+                        ],
+                    );
+                }
+                return Err(e);
+            }
+        };
 
         let display_text = if parsed_text.is_empty() {
             response_text.clone()
@@ -476,7 +482,11 @@ pub(crate) async fn run_tool_call_loop(
                     let _ = tx.send(chunk).await;
                 }
             }
-            history.push(ChatMessage::assistant(response_text.clone()));
+            history.push(if let Some(ref reasoning) = reasoning_content {
+                ChatMessage::assistant_with_reasoning(response_text.clone(), reasoning.clone())
+            } else {
+                ChatMessage::assistant(response_text.clone())
+            });
             log::info!(
                 "[agent_loop] turn complete: iters={} provider_calls={} tokens_in={} tokens_out={} cached_in={} usd={:.4}",
                 (iteration + 1),
@@ -838,7 +848,11 @@ pub(crate) async fn run_tool_call_loop(
         // Native mode: use JSON-structured messages so convert_messages() can
         // reconstruct proper OpenAI-format tool_calls and tool result messages.
         // Prompt mode: use XML-based text format as before.
-        history.push(ChatMessage::assistant(assistant_history_content));
+        history.push(if let Some(ref reasoning) = reasoning_content {
+            ChatMessage::assistant_with_reasoning(assistant_history_content, reasoning.clone())
+        } else {
+            ChatMessage::assistant(assistant_history_content)
+        });
         if native_tool_calls.is_empty() {
             history.push(ChatMessage::user(format!("[Tool results]\n{tool_results}")));
         } else {

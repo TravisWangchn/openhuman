@@ -56,7 +56,7 @@ const en: TranslationMap = {
   // Settings Home
   'settings.general': 'General',
   'settings.featuresAndAI': 'Features & AI',
-  'settings.billingAndRewards': 'Billing & Rewards',
+  'settings.billingAndRewards': 'API Credits',
   'settings.support': 'Support',
   'settings.advanced': 'Advanced',
   'settings.dangerZone': 'Danger Zone',
@@ -70,8 +70,8 @@ const en: TranslationMap = {
   'settings.aiModelsDesc': 'Local AI model setup, downloads, and LLM provider',
   'settings.ai': 'AI Configuration',
   'settings.aiDesc': 'Cloud providers, local Ollama models, and per-workload routing',
-  'settings.billingUsage': 'Billing & Usage',
-  'settings.billingUsageDesc': 'Subscription plan, credits, and payment methods',
+  'settings.deepseekCredits': 'DeepSeek API Credits',
+  'settings.deepseekCreditsDesc': 'Top up your DeepSeek API credits for AI inference',
   'settings.rewards': 'Rewards',
   'settings.rewardsDesc': 'Referrals, coupons, and earned credits',
   'settings.restartTour': 'Restart Tour',
@@ -488,9 +488,12 @@ const en: TranslationMap = {
     'Disabling a category stops new notifications of that type from appearing in the notification center. Existing notifications remain until cleared.',
 
   // Settings: Billing
-  'settings.billing.movedToWeb': 'Billing moved to the web',
-  'settings.billing.openDashboard': 'Open billing dashboard',
-  'settings.billing.movedToWebDesc':
+  'settings.billing.apiCredits': 'API Credits',
+  'settings.billing.deepseekTopUp': 'DeepSeek Platform Top-Up',
+  'settings.billing.deepseekTopUpDesc':
+    'This app uses the DeepSeek API. Top up your credits on the DeepSeek Platform to keep using AI features.',
+  'settings.billing.openDeepseekTopUp': 'Open DeepSeek Top-Up',
+  'settings.billing.old_movedToWebDesc':
     'Subscription changes, payment methods, credits, and invoices are now managed at TinyHumans on the web.',
   'settings.billing.backToSettings': 'Back to settings',
   'settings.billing.openingBrowser': 'Opening your browser...',
@@ -657,6 +660,27 @@ const en: TranslationMap = {
   'voice.startVoiceServer': 'Start Voice Server',
   'voice.stopVoiceServer': 'Stop Voice Server',
   'voice.debugTitle': 'Voice Debug',
+  'voice.mascotVoice': 'Mascot Voice',
+  'voice.mascotVoiceDesc':
+    'Pick the ElevenLabs voice the mascot uses for spoken replies. Choose from curated presets or paste a custom voice ID.',
+  'voice.voicePreset': 'Voice preset',
+  'voice.otherVoice': 'Other (paste voice id)…',
+  'voice.customVoiceId': 'Custom voice id',
+  'voice.findVoiceIds': 'Find voice ids at',
+  'voice.orDashboard':
+    'or your ElevenLabs dashboard. Only the id is stored — your API key stays on the backend.',
+  'voice.previewing': 'Previewing…',
+  'voice.previewVoice': 'Preview voice',
+  'voice.alreadyDefault': 'Already using the shipped default voice',
+  'voice.restoreDefault': 'Restore the shipped default mascot voice',
+  'voice.resetToDefault': 'Reset to default',
+  'voice.current': 'current',
+  'voice.previewFailed': 'Voice preview failed',
+  'voice.doubaoCredentials': 'Volcengine (Doubao) Credentials',
+  'voice.doubaoCredentialsDesc':
+    'App ID and Access Token from Volcengine console are required for Doubao speech recognition and synthesis.',
+  'voice.doubaoAppId': 'App ID',
+  'voice.doubaoAccessToken': 'Access Token',
 
   // Autocomplete
   'autocomplete.title': 'Autocomplete',
@@ -1057,6 +1081,9 @@ const en: TranslationMap = {
   'bootCheck.cannotReach': "Can't Reach the Runtime",
   'bootCheck.cannotReachDesc': "We couldn't connect to your runtime. Want to try a different one?",
   'bootCheck.switchMode': 'Pick a Different Runtime',
+  'bootCheck.localhostCloudSuggestion':
+    "You're in cloud mode but the URL points to localhost. For desktop use, switch to Local mode.",
+  'bootCheck.switchToLocal': 'Switch to Local Mode',
   'bootCheck.quit': 'Quit',
   'bootCheck.legacyDetected': 'Legacy Background Runtime Detected',
   'bootCheck.legacyDescription':

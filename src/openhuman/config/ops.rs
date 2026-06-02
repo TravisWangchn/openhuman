@@ -817,17 +817,42 @@ pub fn get_runtime_flags() -> RpcOutcome<RuntimeFlagsOut> {
 }
 
 /// Updates the `OPENHUMAN_BROWSER_ALLOW_ALL` environment flag.
+///
+/// Emits a `[SECURITY]`-tagged audit log entry on every effective state
+/// transition: WARN when the allow-all bypass is enabled, INFO when it is
+/// disabled. No-op calls (setting enabled=true when already enabled, or
+/// enabled=false when already disabled) are suppressed.
 pub fn set_browser_allow_all(enabled: bool) -> RpcOutcome<RuntimeFlagsOut> {
+    let was_enabled = env_flag_enabled("OPENHUMAN_BROWSER_ALLOW_ALL");
+
     if enabled {
         std::env::set_var("OPENHUMAN_BROWSER_ALLOW_ALL", "1");
     } else {
         std::env::remove_var("OPENHUMAN_BROWSER_ALLOW_ALL");
     }
+
+    let is_enabled = env_flag_enabled("OPENHUMAN_BROWSER_ALLOW_ALL");
     let flags = RuntimeFlagsOut {
-        browser_allow_all: env_flag_enabled("OPENHUMAN_BROWSER_ALLOW_ALL"),
+        browser_allow_all: is_enabled,
         log_prompts: env_flag_enabled("OPENHUMAN_LOG_PROMPTS"),
     };
-    RpcOutcome::single_log(flags, "browser allow-all flag updated")
+
+    if was_enabled != is_enabled {
+        if is_enabled {
+            log::warn!(
+                "[SECURITY] Browser domain allowlist bypass ENABLED — \
+                 OPENHUMAN_BROWSER_ALLOW_ALL set to 1. All external domains \
+                 are reachable from agent tools."
+            );
+        } else {
+            log::info!(
+                "[SECURITY] Browser domain allowlist bypass DISABLED — \
+                 OPENHUMAN_BROWSER_ALLOW_ALL removed."
+            );
+        }
+    }
+
+    RpcOutcome::single_log(flags, "[SECURITY] browser allow-all flag updated")
 }
 
 /// Checks if a specific onboarding flag file exists in the workspace.

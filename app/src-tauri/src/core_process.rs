@@ -231,6 +231,14 @@ impl CoreProcessHandle {
                     }
                 }
                 log::info!("[core] spawning embedded in-process core server on port {port}");
+                // Windows default thread stack is 1 MB; the agent inference
+                // call chain (agent_loop → tool_dispatch → subagent_runner →
+                // research → provider API) can overflow it. A 4 MiB stack
+                // prevents STATUS_STACK_OVERFLOW (0xc00000fd) on deep runs.
+                // Stack size is controlled via the RUST_MIN_STACK env var
+                // (set to 4194304 by the launch script). tokio::task::Builder
+                // is gated behind tokio_unstable in tokio 1.x, so we use the
+                // env-var approach instead.
                 let task = tokio::spawn(async move {
                     if let Err(e) = openhuman_core::core::jsonrpc::run_server_embedded(
                         None,

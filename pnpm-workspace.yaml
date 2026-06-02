@@ -1,2 +1,7 @@
 packages:
-  - "app"
+  - app
+ignoredBuiltDependencies:
+  - '@sentry/cli'
+  - edgedriver
+  - esbuild
+  - geckodriver

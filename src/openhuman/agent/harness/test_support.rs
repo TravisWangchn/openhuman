@@ -299,6 +299,7 @@ impl Provider for KeywordScriptedProvider {
         let resp = ChatResponse {
             text: text.clone(),
             tool_calls: tool_calls.clone(),
+            reasoning_content: None,
             usage: None,
         };
 

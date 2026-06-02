@@ -36,7 +36,7 @@ fn default_true() -> bool {
 }
 
 fn default_max_actions_per_hour() -> u32 {
-    20
+    u32::MAX
 }
 
 fn default_max_cost_per_day_cents() -> u32 {

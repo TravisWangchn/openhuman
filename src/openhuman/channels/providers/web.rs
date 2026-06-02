@@ -157,8 +157,12 @@ fn inference_budget_exceeded_user_message() -> &'static str {
     "I don't have any budget available right now. Please top up your credits or choose a plan to continue."
 }
 
-fn generic_inference_error_user_message() -> &'static str {
-    "Something went wrong. Please try again.\nThis error has been reported. You can also report it on Discord.\n<openhuman-link path=\"community/discord\">Report on Discord</openhuman-link>"
+fn generic_inference_error_user_message(china_mode: bool) -> &'static str {
+    if china_mode {
+        "出现了一些问题，请重试。\n此错误已自动上报，你也可以在 Discord 上反馈。\n<openhuman-link path=\"community/discord\">在 Discord 上反馈</openhuman-link>"
+    } else {
+        "Something went wrong. Please try again.\nThis error has been reported. You can also report it on Discord.\n<openhuman-link path=\"community/discord\">Report on Discord</openhuman-link>"
+    }
 }
 
 /// Pull the structured provider error message out of a raw error string.
@@ -229,82 +233,171 @@ fn with_provider_detail(summary: &str, err: &str) -> String {
     }
 }
 
-fn classify_inference_error(err: &str) -> (&'static str, String) {
+fn classify_inference_error(err: &str, china_mode: bool) -> (&'static str, String) {
     let lower = err.to_lowercase();
-    if lower.contains("rate limit") || lower.contains("429") {
+    // ── Rate limit ─────────────────────────────────────────────────
+    if lower.contains("rate limit")
+        || lower.contains("429")
+        || lower.contains("速率限制")
+        || lower.contains("频率限制")
+        || lower.contains("请求过于频繁")
+        || lower.contains("超出配额")
+        || lower.contains("并发限制")
+    {
         (
             "rate_limited",
             with_provider_detail(
-                "You're being rate-limited. Please wait a moment and try again.",
+                if china_mode {
+                    "请求过于频繁，请稍等片刻后重试。"
+                } else {
+                    "You're being rate-limited. Please wait a moment and try again."
+                },
                 err,
             ),
         )
-    } else if lower.contains("timeout") || lower.contains("timed out") {
+    // ── Timeout ────────────────────────────────────────────────────
+    } else if lower.contains("timeout")
+        || lower.contains("timed out")
+        || lower.contains("超时")
+        || lower.contains("请求超时")
+        || lower.contains("连接超时")
+    {
         (
             "timeout",
             with_provider_detail(
-                "The request timed out. Please check your connection and try again.",
+                if china_mode {
+                    "请求超时，请检查网络连接后重试。"
+                } else {
+                    "The request timed out. Please check your connection and try again."
+                },
                 err,
             ),
         )
-    } else if lower.contains("401") || lower.contains("unauthorized") || lower.contains("api key") {
+    // ── Auth / 401 / 403 ───────────────────────────────────────────
+    } else if lower.contains("401")
+        || lower.contains("unauthorized")
+        || lower.contains("api key")
+        || lower.contains("认证失败")
+        || lower.contains("鉴权失败")
+        || lower.contains("密钥错误")
+        || lower.contains("授权失败")
+        || lower.contains("403")
+        || lower.contains("forbidden")
+    {
         (
             "auth_error",
             with_provider_detail(
-                "There's an authentication issue with the AI provider. Please check your API key in settings.",
+                if china_mode {
+                    "AI 服务认证失败，请在设置中检查 API 密钥。"
+                } else {
+                    "There's an authentication issue with the AI provider. Please check your API key in settings."
+                },
                 err,
             ),
         )
+    // ── Budget / 402 ───────────────────────────────────────────────
     } else if lower.contains("402")
         || lower.contains("payment required")
-        || lower.contains("insufficient balance")
+        || lower.contains("insufficient")
+        || lower.contains("余额不足")
+        || lower.contains("账户欠费")
+        || lower.contains("可用额度不足")
+        || lower.contains("quota")
     {
         (
             "budget_exhausted",
-            with_provider_detail("Insufficient credits. Please top up to continue.", err),
+            with_provider_detail(
+                if china_mode {
+                    "账户额度不足，请充值后继续使用。"
+                } else {
+                    "Insufficient credits. Please top up to continue."
+                },
+                err,
+            ),
         )
+    // ── 500 / 503 / server error ───────────────────────────────────
     } else if lower.contains("500")
         || lower.contains("internal server")
         || lower.contains("service unavailable")
         || lower.contains("503")
+        || lower.contains("内部错误")
+        || lower.contains("服务不可用")
+        || lower.contains("服务器繁忙")
+        || lower.contains("服务异常")
+        || lower.contains("系统错误")
     {
         (
             "provider_error",
             with_provider_detail(
-                "The AI provider is temporarily unavailable. Please try again later.",
+                if china_mode {
+                    "AI 服务暂时不可用，请稍后重试。"
+                } else {
+                    "The AI provider is temporarily unavailable. Please try again later."
+                },
                 err,
             ),
         )
-    } else if lower.contains("context")
+    // ── Context length / token overflow ────────────────────────────
+    } else if (lower.contains("context")
         && (lower.contains("length")
             || lower.contains("limit")
             || lower.contains("exceed")
-            || lower.contains("token"))
+            || lower.contains("token")))
+        || lower.contains("上下文")
+        || (lower.contains("token") && lower.contains("超出"))
+        || lower.contains("长度")
     {
         (
             "context_overflow",
             with_provider_detail(
-                "The conversation is too long. Please start a new chat.",
+                if china_mode {
+                    "对话上下文过长，请开启新对话。"
+                } else {
+                    "The conversation is too long. Please start a new chat."
+                },
                 err,
             ),
         )
-    } else if lower.contains("model")
+    // ── Model not found / unavailable ──────────────────────────────
+    } else if (lower.contains("model")
         && (lower.contains("not found")
             || lower.contains("unavailable")
             || lower.contains("does not exist")
-            || lower.contains("does not have access"))
+            || lower.contains("does not have access")))
+        || lower.contains("模型不存在")
+        || lower.contains("模型不可用")
+        || lower.contains("找不到")
+        || lower.contains("模型未找到")
+        || lower.contains("模型无效")
     {
         (
             "model_unavailable",
             with_provider_detail(
-                "The selected model isn't available on your provider. Check your model settings.",
+                if china_mode {
+                    "所选模型不可用，请在设置中检查模型配置。"
+                } else {
+                    "The selected model isn't available on your provider. Check your model settings."
+                },
                 err,
             ),
         )
+    // ── Tool execution errors ───────────────────────────────────────
+    } else if lower.contains("tool execution error") {
+        let tool_name = err
+            .split('[')
+            .nth(1)
+            .and_then(|s| s.split(']').next())
+            .unwrap_or("unknown");
+        let msg = if china_mode {
+            format!("工具「{tool_name}」执行失败，请重试或换一种提问方式。")
+        } else {
+            format!("The tool \"{tool_name}\" failed. Please try again or rephrase your request.")
+        };
+        ("tool_error", with_provider_detail(&msg, err))
     } else {
         (
             "inference",
-            with_provider_detail(generic_inference_error_user_message(), err),
+            with_provider_detail(generic_inference_error_user_message(china_mode), err),
         )
     }
 }
@@ -462,7 +555,12 @@ pub async fn start_chat(
                     "run_chat_task failed client_id={} thread_id={} request_id={} error={}",
                     client_id_task, thread_id_task, request_id_task, err
                 );
-                let (classified_type, classified_message) = classify_inference_error(&err);
+                let china_mode = config_rpc::load_config_with_timeout()
+                    .await
+                    .map(|c| c.china_models.is_some())
+                    .unwrap_or(false);
+                let (classified_type, classified_message) =
+                    classify_inference_error(&err, china_mode);
                 let classified_type_string = classified_type.to_string();
                 // Max-tool-iterations cap is a deterministic agent-state
                 // outcome surfaced to the user via the existing
@@ -755,6 +853,20 @@ async fn run_chat_task(
             thread_id,
         ) {
             Ok(prior_messages) if !prior_messages.is_empty() => {
+                // Only keep the most recent messages to avoid
+                // contaminating new turns with stale topic context
+                // from days-old conversations. 20 messages (~5-10
+                // turns) is enough for legit session resume.
+                const MAX_RESUME_MESSAGES: usize = 20;
+                let total = prior_messages.len();
+                let prior_messages: Vec<_> = if total > MAX_RESUME_MESSAGES {
+                    prior_messages
+                        .into_iter()
+                        .skip(total.saturating_sub(MAX_RESUME_MESSAGES))
+                        .collect()
+                } else {
+                    prior_messages
+                };
                 let pairs: Vec<(String, String)> = prior_messages
                     .into_iter()
                     .map(|m| (m.sender, m.content))

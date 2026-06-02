@@ -21,6 +21,16 @@ const DEFAULT_BACKEND_URL =
 export const CORE_RPC_URL =
   import.meta.env.VITE_OPENHUMAN_CORE_RPC_URL || 'http://127.0.0.1:7788/rpc';
 
+/**
+ * Build-time fallback for the core RPC bearer token.
+ *
+ * Set via `VITE_OPENHUMAN_CORE_TOKEN` in `app/.env.local` so the web build
+ * (Vite dev server) can auto-authenticate without the user pasting a 64-char
+ * hex token.  When absent, the cloud-mode picker requires manual entry.
+ */
+export const CORE_RPC_TOKEN =
+  (import.meta.env.VITE_OPENHUMAN_CORE_TOKEN as string | undefined)?.trim() || undefined;
+
 /** Matches core `OPENHUMAN_TOOL_TIMEOUT_SECS` (default 120s, max 3600s). */
 const DEFAULT_TOOL_TIMEOUT_SECS = 120;
 const MAX_TOOL_TIMEOUT_SECS = 3600;

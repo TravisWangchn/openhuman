@@ -89,7 +89,7 @@ export interface FactoryTranscribeOptions {
   language?: string;
   /** Override the server-side provider resolution (`'cloud'` | `'whisper'`).
    *  When unset the core reads `config.local_ai.stt_provider`. */
-  provider?: 'cloud' | 'whisper';
+  provider?: 'cloud' | 'whisper' | 'doubao';
   /** Whisper model id (whisper branch only). */
   model?: string;
   /** Defaults derived from the recorded blob. */

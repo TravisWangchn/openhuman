@@ -83,11 +83,17 @@ export function isMissingRequiredFieldsError(err: unknown): boolean {
  */
 export function sanitizeAuthError(err: unknown): string {
   if (isMissingRequiredFieldsError(err)) {
-    // Never surface raw 612 payloads — callers should handle this separately.
     return 'A required field is missing. Please provide the missing details and try again.';
   }
   if (!err) return 'Something went wrong.';
   const raw = err instanceof Error ? err.message : String(err);
+
+  // Backend session token missing — the core has no backend service to
+  // proxy OAuth through. Show a friendly message instead of the raw
+  // "composio backend mode unavailable: no backend session token" error.
+  if (/no backend session token/i.test(raw)) {
+    return 'This integration is not currently available. Connections require a backend service that is not configured.';
+  }
 
   // Strip any URL that looks like a backend endpoint so it is not displayed.
   const stripped = raw.replace(/https?:\/\/[^\s"]+/g, '<backend>');

@@ -34,11 +34,14 @@ const ToolsPanel = ({ embedded = false }: ToolsPanelProps = {}) => {
 
   const onboardingTasks = snapshot.localState.onboardingTasks;
 
-  // Initialise toggle state from core state (persisted) or defaults.
+  // Initialise toggle state from core state (persisted) merged with defaults,
+  // so tools newly default-enabled in an update are automatically granted.
   useEffect(() => {
     if (savingRef.current) return;
     const persisted = onboardingTasks?.enabledTools;
-    const enabledList = persisted && persisted.length > 0 ? persisted : getDefaultEnabledTools();
+    const defaults = getDefaultEnabledTools();
+    const enabledList =
+      persisted && persisted.length > 0 ? [...new Set([...persisted, ...defaults])] : defaults;
     const map: Record<string, boolean> = {};
     for (const cat of TOOL_CATEGORIES) {
       for (const tool of toolsByCategory[cat]) {

@@ -42,6 +42,7 @@ impl Provider for MockProvider {
             return Ok(crate::openhuman::providers::ChatResponse {
                 text: Some("done".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             });
         }
@@ -98,6 +99,7 @@ impl Provider for RecordingProvider {
             return Ok(crate::openhuman::providers::ChatResponse {
                 text: Some("done".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             });
         }
@@ -251,6 +253,7 @@ async fn turn_without_tools_returns_text() {
         responses: Mutex::new(vec![crate::openhuman::providers::ChatResponse {
             text: Some("hello".into()),
             tool_calls: vec![],
+            reasoning_content: None,
             usage: None,
         }]),
     });
@@ -289,11 +292,13 @@ async fn turn_with_native_dispatcher_handles_tool_results_variant() {
                     name: "echo".into(),
                     arguments: "{}".into(),
                 }],
+                reasoning_content: None,
                 usage: None,
             },
             crate::openhuman::providers::ChatResponse {
                 text: Some("done".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             },
         ]),
@@ -336,11 +341,13 @@ async fn turn_with_native_dispatcher_persists_fallback_tool_calls() {
                         .into(),
                 ),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             },
             crate::openhuman::providers::ChatResponse {
                 text: Some("done".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             },
         ]),
@@ -426,16 +433,19 @@ async fn turn_dispatches_spawn_subagent_through_full_path() {
                     })
                     .to_string(),
                 }],
+                reasoning_content: None,
                 usage: None,
             },
             crate::openhuman::providers::ChatResponse {
                 text: Some("X is Y".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             },
             crate::openhuman::providers::ChatResponse {
                 text: Some("Based on the research, X is Y.".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             },
         ]),
@@ -513,16 +523,19 @@ async fn system_prompt_and_model_are_byte_stable_across_turns() {
             crate::openhuman::providers::ChatResponse {
                 text: Some("first".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             },
             crate::openhuman::providers::ChatResponse {
                 text: Some("second".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             },
             crate::openhuman::providers::ChatResponse {
                 text: Some("third".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             },
         ]),

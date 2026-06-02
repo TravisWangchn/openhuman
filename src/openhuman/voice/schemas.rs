@@ -7,6 +7,7 @@ use serde_json::{Map, Value};
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::openhuman::config::rpc as config_rpc;
+use crate::openhuman::local_ai::paths::resolve_piper_binary_with_config;
 use crate::rpc::RpcOutcome;
 
 // ---------------------------------------------------------------------------
@@ -102,6 +103,12 @@ struct SetProvidersParams {
     stt_model: Option<String>,
     #[serde(default)]
     tts_voice: Option<String>,
+    /// 火山引擎（豆包）App ID — 语音识别/合成
+    #[serde(default)]
+    doubao_app_id: Option<String>,
+    /// 火山引擎（豆包）Access Token
+    #[serde(default)]
+    doubao_access_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -494,7 +501,9 @@ fn handle_voice_tts(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let p = deserialize_params::<TtsParams>(params)?;
         to_json(
-            crate::openhuman::voice::voice_tts(&config, &p.text, p.output_path.as_deref()).await?,
+            crate::openhuman::voice::voice_tts(&config, &p.text, p.output_path.as_deref())
+                .await
+                .map_err(|e| sanitize_voice_error_for_rpc(e))?,
         )
     })
 }
@@ -531,17 +540,23 @@ fn handle_voice_reply_synthesize(params: Map<String, Value>) -> ControllerFuture
         } else {
             Some(voice.as_str())
         };
-        log::debug!(
+        log::info!(
             "[voice-factory] voice_reply_synthesize dispatch provider={provider_name} voice={voice}"
         );
         let provider =
-            crate::openhuman::voice::create_tts_provider(&provider_name, &voice, &config)
-                .map_err(|e| e.to_string())?;
-        to_json(
-            provider
-                .synthesize(&config, &p.text, effective_voice)
-                .await?,
-        )
+            crate::openhuman::voice::create_tts_provider(&provider_name, &voice, &config).map_err(
+                |e| {
+                    log::error!("[voice-factory] create_tts_provider failed: {e}");
+                    e.to_string()
+                },
+            )?;
+        match provider.synthesize(&config, &p.text, effective_voice).await {
+            Ok(outcome) => to_json(outcome),
+            Err(e) => {
+                log::error!("[voice-factory] TTS synthesize failed provider={provider_name}: {e}");
+                Err(sanitize_voice_error_for_rpc(e))
+            }
+        }
     })
 }
 
@@ -564,6 +579,27 @@ fn handle_voice_cloud_transcribe(params: Map<String, Value>) -> ControllerFuture
             .await?,
         )
     })
+}
+
+/// Sanitize STT provider error messages so that auth-related keywords from
+/// third-party ASR APIs (Doubao/Volcengine) are not falsely classified as
+/// OpenHuman session expiry by `is_session_expired_error` or the frontend
+/// `classifyRpcError`.  Voice transcription failures must never trigger a
+/// login redirect.
+fn sanitize_voice_error_for_rpc(e: String) -> String {
+    let s = e
+        .replace("Unauthorized", "[unauth]")
+        .replace("UNAUTHORIZED", "[unauth]")
+        .replace("unauthorized", "[unauth]")
+        .replace("Session expired", "[session-exp]")
+        .replace("SESSION_EXPIRED", "[session-exp]")
+        .replace("session expired", "[session-exp]")
+        .replace("invalid token", "[invalid-tok]")
+        .replace("Invalid Token", "[invalid-tok]")
+        .replace("INVALID TOKEN", "[invalid-tok]")
+        .replace("session jwt required", "[jwt-req]")
+        .replace("no backend session token", "[no-backend-tok]");
+    format!("voice STT: {s}")
 }
 
 fn handle_voice_stt_dispatch(params: Map<String, Value>) -> ControllerFuture {
@@ -599,7 +635,8 @@ fn handle_voice_stt_dispatch(params: Map<String, Value>) -> ControllerFuture {
                 p.file_name.as_deref(),
                 p.language.as_deref(),
             )
-            .await?;
+            .await
+            .map_err(|e| sanitize_voice_error_for_rpc(e))?;
         let value = serde_json::json!({
             "text": outcome.value.text,
             "provider": outcome.value.provider,
@@ -648,7 +685,8 @@ fn handle_voice_tts_dispatch(params: Map<String, Value>) -> ControllerFuture {
                 .map_err(|e| e.to_string())?;
         let outcome = provider
             .synthesize(&config, &p.text, effective_voice)
-            .await?;
+            .await
+            .map_err(|e| sanitize_voice_error_for_rpc(e))?;
         to_json(outcome)
     })
 }
@@ -692,14 +730,32 @@ fn handle_voice_set_providers(params: Map<String, Value>) -> ControllerFuture {
         {
             config.local_ai.tts_voice_id = voice.to_string();
         }
+        // 火山引擎（豆包）凭证 — 空字符串视为"清除"
+        if let Some(app_id) = &p.doubao_app_id {
+            let trimmed = app_id.trim();
+            config.local_ai.doubao_app_id = if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            };
+        }
+        if let Some(token) = &p.doubao_access_token {
+            let trimmed = token.trim();
+            config.local_ai.doubao_access_token = if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            };
+        }
 
         config.save().await.map_err(|e| e.to_string())?;
         log::debug!(
-            "[voice-factory] persisted providers stt={} tts={} stt_model={} tts_voice={}",
+            "[voice-factory] persisted providers stt={} tts={} stt_model={} tts_voice={} doubao_app={}",
             config.local_ai.stt_provider,
             config.local_ai.tts_provider,
             config.local_ai.stt_model_id,
-            config.local_ai.tts_voice_id
+            config.local_ai.tts_voice_id,
+            config.local_ai.doubao_app_id.is_some()
         );
 
         Ok(serde_json::json!({
@@ -707,47 +763,72 @@ fn handle_voice_set_providers(params: Map<String, Value>) -> ControllerFuture {
             "tts_provider": config.local_ai.tts_provider,
             "stt_model_id": config.local_ai.stt_model_id,
             "tts_voice_id": config.local_ai.tts_voice_id,
+            "doubao_configured": config.local_ai.doubao_app_id.is_some()
+                && config.local_ai.doubao_access_token.is_some(),
         }))
     })
 }
 
 fn validate_stt_provider(provider: &str) -> Result<(), String> {
     match provider {
-        "cloud" | "whisper" => Ok(()),
+        "cloud" | "whisper" | "doubao" => Ok(()),
         other => Err(format!(
-            "invalid stt_provider '{other}' (valid: 'cloud', 'whisper')"
+            "invalid stt_provider '{other}' (valid: 'cloud', 'whisper', 'doubao')"
         )),
     }
 }
 
 fn validate_tts_provider(provider: &str) -> Result<(), String> {
     match provider {
-        "cloud" | "piper" => Ok(()),
+        "cloud" | "piper" | "doubao" => Ok(()),
         other => Err(format!(
-            "invalid tts_provider '{other}' (valid: 'cloud', 'piper')"
+            "invalid tts_provider '{other}' (valid: 'cloud', 'piper', 'doubao')"
         )),
     }
 }
 
 /// Read the user-selected STT provider from config. Defaults to `"cloud"`
 /// for fresh installs — keeps the existing renderer behaviour unchanged
+/// for fresh installs — keeps the existing renderer behaviour unchanged
 /// until the user opts into the local stack.
-fn effective_stt_provider(config: &crate::openhuman::config::Config) -> String {
+pub(crate) fn effective_stt_provider(config: &crate::openhuman::config::Config) -> String {
     let raw = config.local_ai.stt_provider.trim();
-    if raw.is_empty() {
-        "cloud".to_string()
-    } else {
-        raw.to_string()
+    // Explicit non-default choices are respected as-is.
+    if raw == "doubao" || raw == "cloud" {
+        return raw.to_string();
     }
+    // OpenHuman-ZN: when doubao voice credentials (App ID + Access Token)
+    // are configured, prefer doubao STT (火山引擎 ASR) over local whisper.
+    if config.local_ai.doubao_app_id.is_some() && config.local_ai.doubao_access_token.is_some() {
+        tracing::debug!("[voice] doubao voice credentials configured — defaulting STT to doubao");
+        return "doubao".to_string();
+    }
+    "whisper".to_string()
 }
 
-fn effective_tts_provider(config: &crate::openhuman::config::Config) -> String {
+pub(crate) fn effective_tts_provider(config: &crate::openhuman::config::Config) -> String {
     let raw = config.local_ai.tts_provider.trim();
-    if raw.is_empty() {
-        "cloud".to_string()
-    } else {
-        raw.to_string()
+    // Explicit non-default choices are respected as-is.
+    if raw == "doubao" || raw == "cloud" {
+        return raw.to_string();
     }
+    // OpenHuman-ZN: when doubao voice credentials (App ID + Access Token)
+    // are configured, prefer doubao TTS over piper. These are Volcengine
+    // (火山引擎) voice API credentials — distinct from the LLM inference
+    // API key in china_models.
+    if config.local_ai.doubao_app_id.is_some() && config.local_ai.doubao_access_token.is_some() {
+        log::info!("[voice] doubao voice credentials configured — defaulting TTS to doubao");
+        return "doubao".to_string();
+    }
+    // Only default to piper when the binary is actually installed; otherwise
+    // fall back to the cloud ElevenLabs proxy so TTS works out of the box
+    // without requiring a manual Piper install.
+    if resolve_piper_binary_with_config(config).is_some() {
+        log::info!("[voice] piper binary found — defaulting TTS to piper");
+        return "piper".to_string();
+    }
+    log::info!("[voice] piper not installed and no doubao creds — defaulting TTS to cloud (likely blocked in China)");
+    "cloud".to_string()
 }
 
 fn handle_voice_server_start(params: Map<String, Value>) -> ControllerFuture {

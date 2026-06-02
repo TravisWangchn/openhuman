@@ -1,29 +1,43 @@
 //! Tool: insert_sql_record — insert an episodic record into the FTS5 memory database.
 
+use crate::openhuman::memory::store::fts5::{self, EpisodicEntry};
 use crate::openhuman::tools::traits::{PermissionLevel, Tool, ToolResult};
 use async_trait::async_trait;
+use parking_lot::Mutex;
+use rusqlite::Connection;
 use serde_json::json;
+use std::sync::Arc;
 
 /// Valid values for the `role` parameter.
 const VALID_ROLES: &[&str] = &["user", "assistant", "tool"];
 
 /// Inserts an episodic memory record into the FTS5 episodic-memory SQLite table.
 ///
-/// # Current status
-/// The FTS5 schema and connection pool will be wired in Phase 5 of the harness
-/// implementation. This stub validates parameters, emits structured trace logs,
-/// and returns a success result so calling agents can proceed without blocking.
-pub struct InsertSqlRecordTool;
+/// Wired to the live `episodic_log` + `episodic_fts` tables via
+/// `fts5::episodic_insert`. Accepts an `Arc<Mutex<Connection>>` from the
+/// `UnifiedMemory` connection pool so inserts land in the same database
+/// the Archivist and search tools use.
+pub struct InsertSqlRecordTool {
+    conn: Option<Arc<Mutex<Connection>>>,
+}
 
 impl InsertSqlRecordTool {
-    pub fn new() -> Self {
-        Self
+    /// Create an insert_sql_record tool with a live DB connection.
+    pub fn new(conn: Arc<Mutex<Connection>>) -> Self {
+        Self { conn: Some(conn) }
+    }
+
+    /// Create an insert_sql_record tool with no DB connection (no-op stub).
+    /// Used when the memory system hasn't been initialised yet — every
+    /// insert returns a clear error so the agent doesn't silently lose data.
+    pub fn disabled() -> Self {
+        Self { conn: None }
     }
 }
 
 impl Default for InsertSqlRecordTool {
     fn default() -> Self {
-        Self::new()
+        Self::disabled()
     }
 }
 
@@ -71,6 +85,16 @@ impl Tool for InsertSqlRecordTool {
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        let conn = match &self.conn {
+            Some(c) => c,
+            None => {
+                return Ok(ToolResult::error(
+                    "insert_sql_record is not connected to the memory database. \
+                     The UnifiedMemory system must be initialised before episodic inserts are available."
+                ));
+            }
+        };
+
         // ── Parameter extraction ────────────────────────────────────────────
         let session_id = args
             .get("session_id")
@@ -104,38 +128,40 @@ impl Tool for InsertSqlRecordTool {
             return Ok(ToolResult::error("'content' must not be empty."));
         }
 
-        // ── Structured trace log ────────────────────────────────────────────
+        // ── Insert via the live FTS5 pipeline ───────────────────────────────
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs_f64();
+
+        let entry = EpisodicEntry {
+            id: None,
+            session_id: session_id.to_string(),
+            timestamp: ts,
+            role: role.to_string(),
+            content: content.to_string(),
+            lesson: lesson.map(|l| l.to_string()),
+            tool_calls_json: None,
+            cost_microdollars: 0,
+        };
+
+        fts5::episodic_insert(conn, &entry)?;
+
         tracing::info!(
             session_id = session_id,
             role = role,
             content_len = content.len(),
             has_lesson = lesson.is_some(),
-            "[insert_sql_record] episodic record queued for FTS5 insert"
+            "[insert_sql_record] episodic record inserted into FTS5"
         );
 
-        if let Some(lesson_text) = lesson {
-            tracing::debug!(
-                session_id = session_id,
-                "[insert_sql_record] lesson: {lesson_text}"
-            );
-        }
-
-        // ── Placeholder result (FTS5 wire-up deferred to Phase 5) ───────────
-        // TODO(phase-5): obtain `Arc<SqlitePool>` from app state, run:
-        //   sqlx::query!(
-        //       "INSERT INTO episodic_memory(session_id, role, content, lesson, ts)
-        //        VALUES (?, ?, ?, ?, unixepoch())",
-        //       session_id, role, content, lesson
-        //   ).execute(&*pool).await?;
         let summary = format!(
-            "Record staged: session={session_id} role={role} content_len={} lesson={}",
+            "Record inserted: session={session_id} role={role} content_len={} lesson={}",
             content.len(),
             lesson.map_or("none".to_string(), |l| format!("{} chars", l.len())),
         );
 
-        Ok(ToolResult::error(format!(
-            "episodic memory write not yet wired (FTS5/SQLite insert pending). {summary}"
-        )))
+        Ok(ToolResult::success(summary))
     }
 }
 
@@ -143,13 +169,20 @@ impl Tool for InsertSqlRecordTool {
 mod tests {
     use super::*;
 
-    fn tool() -> InsertSqlRecordTool {
-        InsertSqlRecordTool::new()
+    fn tool_with_db() -> InsertSqlRecordTool {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(fts5::EPISODIC_INIT_SQL).unwrap();
+        InsertSqlRecordTool::new(Arc::new(Mutex::new(conn)))
+    }
+
+    fn tool_disabled() -> InsertSqlRecordTool {
+        InsertSqlRecordTool::disabled()
     }
 
     #[tokio::test]
-    async fn inserts_minimal_record() {
-        let result = tool()
+    async fn inserts_and_reads_back() {
+        let tool = tool_with_db();
+        let result = tool
             .execute(json!({
                 "session_id": "sess-001",
                 "role": "user",
@@ -157,16 +190,14 @@ mod tests {
             }))
             .await
             .unwrap();
-        // The tool is a stub: success is false until FTS5 write is wired.
-        assert!(result.is_error);
-        assert!(result.output().contains("not yet wired"));
-        assert!(result.output().contains("sess-001"));
-        assert!(result.output().contains("user"));
+        assert!(!result.is_error, "should succeed: {}", result.output());
+        assert!(result.output().contains("Record inserted"));
     }
 
     #[tokio::test]
     async fn inserts_with_lesson() {
-        let result = tool()
+        let tool = tool_with_db();
+        let result = tool
             .execute(json!({
                 "session_id": "sess-002",
                 "role": "assistant",
@@ -175,14 +206,29 @@ mod tests {
             }))
             .await
             .unwrap();
-        // The tool is a stub: success is false until FTS5 write is wired.
+        assert!(!result.is_error);
+        assert!(result.output().contains("lesson=24 chars"));
+    }
+
+    #[tokio::test]
+    async fn disabled_tool_returns_clear_error() {
+        let tool = tool_disabled();
+        let result = tool
+            .execute(json!({
+                "session_id": "sess",
+                "role": "user",
+                "content": "test"
+            }))
+            .await
+            .unwrap();
         assert!(result.is_error);
-        assert!(result.output().contains("lesson="));
+        assert!(result.output().contains("not connected"));
     }
 
     #[tokio::test]
     async fn rejects_invalid_role() {
-        let result = tool()
+        let tool = tool_with_db();
+        let result = tool
             .execute(json!({
                 "session_id": "sess-003",
                 "role": "system",
@@ -196,7 +242,8 @@ mod tests {
 
     #[tokio::test]
     async fn rejects_empty_session_id() {
-        let result = tool()
+        let tool = tool_with_db();
+        let result = tool
             .execute(json!({
                 "session_id": "  ",
                 "role": "user",
@@ -210,7 +257,8 @@ mod tests {
 
     #[tokio::test]
     async fn rejects_empty_content() {
-        let result = tool()
+        let tool = tool_with_db();
+        let result = tool
             .execute(json!({
                 "session_id": "sess-004",
                 "role": "tool",
@@ -224,7 +272,8 @@ mod tests {
 
     #[tokio::test]
     async fn missing_required_param_returns_error() {
-        let result = tool()
+        let tool = tool_with_db();
+        let result = tool
             .execute(json!({ "session_id": "s", "role": "user" }))
             .await;
         assert!(result.is_err(), "should return Err for missing 'content'");
@@ -232,7 +281,7 @@ mod tests {
 
     #[test]
     fn schema_has_required_fields() {
-        let schema = tool().parameters_schema();
+        let schema = tool_disabled().parameters_schema();
         let required = schema["required"].as_array().unwrap();
         assert!(required.contains(&json!("session_id")));
         assert!(required.contains(&json!("role")));
@@ -241,6 +290,6 @@ mod tests {
 
     #[test]
     fn permission_is_write() {
-        assert_eq!(tool().permission_level(), PermissionLevel::Write);
+        assert_eq!(tool_disabled().permission_level(), PermissionLevel::Write);
     }
 }

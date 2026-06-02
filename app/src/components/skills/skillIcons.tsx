@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react';
 import type { IconType } from 'react-icons';
-import { FaDiscord, FaGlobe, FaTelegramPlane } from 'react-icons/fa';
+import { FaDiscord, FaGlobe, FaTelegramPlane, FaWeixin } from 'react-icons/fa';
 import { IoChatbubble } from 'react-icons/io5';
 import {
   LuBlocks,
   LuBot,
+  LuBuilding2,
+  LuFeather,
   LuKeyboard,
+  LuMessageCircle,
   LuMessageSquareMore,
   LuMic,
   LuMonitor,
@@ -14,6 +17,7 @@ import {
   LuSparkles,
   LuWrench,
 } from 'react-icons/lu';
+import { SiQq } from 'react-icons/si';
 
 import type { SkillCategory } from './skillCategories';
 
@@ -79,6 +83,46 @@ export const CHANNEL_ICONS: Record<string, ReactNode> = {
       label="iMessage"
       bgClassName="bg-[#E8F8EE]"
       iconClassName="text-[#34C759]"
+    />
+  ),
+  wechat: (
+    <SkillIconBadge
+      icon={FaWeixin}
+      label="微信"
+      bgClassName="bg-[#E6F9EE]"
+      iconClassName="text-[#07C160]"
+    />
+  ),
+  dingtalk: (
+    <SkillIconBadge
+      icon={LuMessageCircle}
+      label="钉钉"
+      bgClassName="bg-[#E6F0FF]"
+      iconClassName="text-[#0089FF]"
+    />
+  ),
+  feishu: (
+    <SkillIconBadge
+      icon={LuFeather}
+      label="飞书"
+      bgClassName="bg-[#E8ECFF]"
+      iconClassName="text-[#3370FF]"
+    />
+  ),
+  qq: (
+    <SkillIconBadge
+      icon={SiQq}
+      label="QQ"
+      bgClassName="bg-[#E5F5FD]"
+      iconClassName="text-[#12B7F5]"
+    />
+  ),
+  wecom: (
+    <SkillIconBadge
+      icon={LuBuilding2}
+      label="企业微信"
+      bgClassName="bg-[#E6F7EE]"
+      iconClassName="text-[#06B163]"
     />
   ),
 };

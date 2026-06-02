@@ -9,7 +9,8 @@ fn xml_dispatcher_parses_tool_calls() {
                 .into(),
         ),
         tool_calls: vec![],
-        usage: None,
+        reasoning_content: None,
+            usage: None,
     };
     let dispatcher = XmlToolDispatcher;
     let (_, calls) = dispatcher.parse_response(&response);
@@ -26,6 +27,7 @@ fn native_dispatcher_roundtrip() {
             name: "file_read".into(),
             arguments: "{\"path\":\"a.txt\"}".into(),
         }],
+        reasoning_content: None,
         usage: None,
     };
     let dispatcher = NativeToolDispatcher;
@@ -56,7 +58,8 @@ fn native_dispatcher_falls_back_to_xml_tool_calls() {
                 .into(),
         ),
         tool_calls: vec![],
-        usage: None,
+        reasoning_content: None,
+            usage: None,
     };
     let dispatcher = NativeToolDispatcher;
     let (text, calls) = dispatcher.parse_response(&response);
@@ -73,7 +76,8 @@ fn native_dispatcher_falls_back_to_invoke_tag() {
             "Let me run this.\n<invoke>{\"name\":\"shell\",\"arguments\":{\"command\":\"pwd\"}}</invoke>".into(),
         ),
         tool_calls: vec![],
-        usage: None,
+        reasoning_content: None,
+            usage: None,
     };
     let dispatcher = NativeToolDispatcher;
     let (text, calls) = dispatcher.parse_response(&response);
@@ -127,6 +131,7 @@ fn pformat_dispatcher_parses_tool_call_tag() {
             "Let me check the weather.\n<tool_call>get_weather[London|metric]</tool_call>".into(),
         ),
         tool_calls: vec![],
+        reasoning_content: None,
         usage: None,
     };
     let (text, calls) = dispatcher.parse_response(&response);
@@ -156,7 +161,8 @@ fn pformat_dispatcher_falls_back_to_json_in_tag() {
                 .into(),
         ),
         tool_calls: vec![],
-        usage: None,
+        reasoning_content: None,
+            usage: None,
     };
     let (text, calls) = dispatcher.parse_response(&response);
     assert_eq!(text, "Running it now.");
@@ -178,6 +184,7 @@ fn pformat_dispatcher_handles_multiple_tags() {
                 .into(),
         ),
         tool_calls: vec![],
+        reasoning_content: None,
         usage: None,
     };
     let (_text, calls) = dispatcher.parse_response(&response);

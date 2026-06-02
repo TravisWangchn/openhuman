@@ -92,27 +92,18 @@ fn rpc_method_name_formats_correctly() {
 }
 
 #[test]
-fn registered_controller_rpc_method_name() {
-    let s = schema("billing", "get_balance", vec![]);
-    let rc = RegisteredController {
-        schema: s,
-        handler: noop_handler,
-    };
-    assert_eq!(rc.rpc_method_name(), "openhuman.billing_get_balance");
-}
-
-#[test]
 fn namespace_description_known_namespaces() {
     assert!(namespace_description("memory").is_some());
     assert!(namespace_description("memory_tree").is_some());
     assert!(namespace_description("redirect_links").is_some());
-    assert!(namespace_description("billing").is_some());
     assert!(namespace_description("config").is_some());
     assert!(namespace_description("health").is_some());
     assert!(namespace_description("security").is_some());
     assert!(namespace_description("voice").is_some());
     assert!(namespace_description("webhooks").is_some());
     assert!(namespace_description("notification").is_some());
+    assert!(namespace_description("billing").is_some());
+    assert!(namespace_description("license").is_some());
 }
 
 #[test]

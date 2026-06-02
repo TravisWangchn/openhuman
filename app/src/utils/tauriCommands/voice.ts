@@ -33,10 +33,12 @@ export interface VoiceStatus {
   whisper_in_process: boolean;
   /** Whether LLM post-processing is enabled for transcription cleanup. */
   llm_cleanup_enabled: boolean;
-  /** Currently selected STT provider ('cloud' or 'whisper'). */
+  /** Currently selected STT provider ('cloud', 'whisper', or 'doubao'). */
   stt_provider: string;
-  /** Currently selected TTS provider ('cloud' or 'piper'). */
+  /** Currently selected TTS provider ('cloud', 'piper', or 'doubao'). */
   tts_provider: string;
+  /** 火山引擎（豆包）是否已配置（凭证不暴露） */
+  doubao_configured?: boolean;
 }
 
 export interface VoiceServerStatus {
@@ -114,10 +116,14 @@ export async function openhumanUpdateVoiceServerSettings(update: {
 }
 
 export interface VoiceProvidersUpdate {
-  stt_provider?: 'cloud' | 'whisper';
-  tts_provider?: 'cloud' | 'piper';
+  stt_provider?: 'cloud' | 'whisper' | 'doubao';
+  tts_provider?: 'cloud' | 'piper' | 'doubao';
   stt_model?: string;
   tts_voice?: string;
+  /** 火山引擎（豆包）App ID */
+  doubao_app_id?: string;
+  /** 火山引擎（豆包）Access Token */
+  doubao_access_token?: string;
 }
 
 export interface VoiceProvidersSnapshot {
@@ -125,6 +131,8 @@ export interface VoiceProvidersSnapshot {
   tts_provider: string;
   stt_model_id: string;
   tts_voice_id: string;
+  /** 火山引擎（豆包）是否已配置（凭证不暴露） */
+  doubao_configured?: boolean;
 }
 
 /**

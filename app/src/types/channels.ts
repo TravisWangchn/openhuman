@@ -1,4 +1,12 @@
-export type ChannelType = 'telegram' | 'discord' | 'web';
+export type ChannelType =
+  | 'telegram'
+  | 'discord'
+  | 'web'
+  | 'wechat'
+  | 'dingtalk'
+  | 'feishu'
+  | 'qq'
+  | 'wecom';
 
 export type ChannelAuthMode = 'managed_dm' | 'oauth' | 'bot_token' | 'api_key';
 

@@ -37,7 +37,7 @@ vi.mock('../../../providers/CoreStateProvider', () => ({
 
 vi.mock('../../../store', () => ({ persistor: { purge: vi.fn().mockResolvedValue(undefined) } }));
 
-vi.mock('../../../utils/links', () => ({ BILLING_DASHBOARD_URL: 'https://billing.example.com' }));
+vi.mock('../../../utils/links', () => ({ DEEPSEEK_TOPUP_URL: 'https://billing.example.com' }));
 
 vi.mock('../../../utils/openUrl', () => ({ openUrl: vi.fn().mockResolvedValue(undefined) }));
 

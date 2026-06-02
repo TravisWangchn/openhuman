@@ -35,3 +35,27 @@ pub use schemas::{
     all_controller_schemas as all_security_controller_schemas,
     all_registered_controllers as all_security_registered_controllers,
 };
+
+/// Validate that a resolved candidate path stays within the workspace root,
+/// preventing path traversal via `..` components or symlink escapes.
+///
+/// Canonicalizes both paths and checks that `candidate` starts with `workspace_root`.
+/// Returns the resolved path on success, or `None` when the candidate is outside
+/// the workspace or cannot be resolved.
+pub fn validate_workspace_path(
+    workspace_root: &std::path::Path,
+    candidate: &std::path::Path,
+) -> Option<std::path::PathBuf> {
+    let resolved_candidate = std::fs::canonicalize(candidate).ok()?;
+    let resolved_root = std::fs::canonicalize(workspace_root).ok()?;
+    if resolved_candidate.starts_with(&resolved_root) {
+        Some(resolved_candidate)
+    } else {
+        log::warn!(
+            "[security] path traversal blocked: {} is outside workspace {}",
+            candidate.display(),
+            workspace_root.display()
+        );
+        None
+    }
+}

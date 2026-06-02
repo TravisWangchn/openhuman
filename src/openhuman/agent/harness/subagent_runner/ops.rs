@@ -213,8 +213,18 @@ pub async fn run_subagent(
     // want to gate on it (e.g. `composio_execute` rejecting
     // Write/Admin slugs under `ReadOnly`) read it via
     // `current_sandbox_mode()`; tools that don't care just ignore it.
+    // Box the large async state machine to avoid stack overflow on
+    // Windows (default 1 MB thread stack). run_typed_mode creates a
+    // substantial state machine with many await points and local vars.
     let mut outcome = with_current_sandbox_mode(definition.sandbox_mode, async {
-        run_typed_mode(definition, task_prompt, &options, &parent, &task_id).await
+        Box::pin(run_typed_mode(
+            definition,
+            task_prompt,
+            &options,
+            &parent,
+            &task_id,
+        ))
+        .await
     })
     .await?;
 
@@ -754,16 +764,31 @@ async fn run_typed_mode(
         .iter()
         .map(|&i| parent.all_tool_specs[i].clone())
         .collect();
-    let mut allowed_names: HashSet<String> = allowed_indices
-        .iter()
-        .map(|&i| parent.all_tools[i].name().to_string())
-        .collect();
-    // Append dynamic tool specs / names so they're discoverable by the
-    // provider (native tool-calling) and by the inner loop's allowlist.
+    // Append dynamic tool specs so they're discoverable by the provider
+    // (native tool-calling) and by the inner loop's allowlist.
     for tool in &dynamic_tools {
         filtered_specs.push(tool.spec());
-        allowed_names.insert(tool.name().to_string());
     }
+    // De-duplicate before building allowed_names — duplicate tool names
+    // cause provider 400s (DeepSeek: "Tool names must be unique").
+    let mut seen_names: HashSet<String> = HashSet::new();
+    let mut dropped: Vec<String> = Vec::new();
+    filtered_specs.retain(|s| {
+        if seen_names.insert(s.name.clone()) {
+            true
+        } else {
+            dropped.push(s.name.clone());
+            false
+        }
+    });
+    if !dropped.is_empty() {
+        tracing::warn!(
+            agent_id = %definition.id,
+            ?dropped,
+            "[subagent_runner:typed] dropped duplicate tool spec(s)"
+        );
+    }
+    let allowed_names: HashSet<String> = seen_names;
 
     tracing::debug!(
         agent_id = %definition.id,
@@ -1238,6 +1263,7 @@ async fn run_inner_loop(
         }
 
         let response_text = resp.text.clone().unwrap_or_default();
+        let reasoning_content = resp.reasoning_content.clone();
 
         // In text mode the model emits `<tool_call>{…}</tool_call>` tags
         // inline inside `resp.text` (and `resp.tool_calls` is empty
@@ -1278,7 +1304,11 @@ async fn run_inner_loop(
                 final_chars = response_text.chars().count(),
                 "[subagent_runner] no tool calls — returning final response"
             );
-            history.push(ChatMessage::assistant(response_text.clone()));
+            history.push(if let Some(ref reasoning) = reasoning_content {
+                ChatMessage::assistant_with_reasoning(response_text.clone(), reasoning.clone())
+            } else {
+                ChatMessage::assistant(response_text.clone())
+            });
             append_worker_message(
                 response_text.clone(),
                 "agent".to_string(),
@@ -1303,11 +1333,19 @@ async fn run_inner_loop(
         // verbatim — on the next turn the model sees its own prior
         // emissions exactly as it wrote them.
         if force_text_mode {
-            history.push(ChatMessage::assistant(response_text.clone()));
+            history.push(if let Some(ref reasoning) = reasoning_content {
+                ChatMessage::assistant_with_reasoning(response_text.clone(), reasoning.clone())
+            } else {
+                ChatMessage::assistant(response_text.clone())
+            });
         } else {
             let assistant_history_content =
                 super::super::parse::build_native_assistant_history(&response_text, &native_calls);
-            history.push(ChatMessage::assistant(assistant_history_content));
+            history.push(if let Some(ref reasoning) = reasoning_content {
+                ChatMessage::assistant_with_reasoning(assistant_history_content, reasoning.clone())
+            } else {
+                ChatMessage::assistant(assistant_history_content)
+            });
         }
 
         append_worker_message(

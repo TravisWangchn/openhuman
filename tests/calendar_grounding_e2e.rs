@@ -54,6 +54,7 @@ impl Provider for MockCalendarProvider {
                     })
                     .to_string(),
                 }],
+                reasoning_content: None,
                 usage: None,
             })
         } else {
@@ -61,6 +62,7 @@ impl Provider for MockCalendarProvider {
             Ok(ChatResponse {
                 text: Some("You have no events this week.".into()),
                 tool_calls: vec![],
+                reasoning_content: None,
                 usage: None,
             })
         }

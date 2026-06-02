@@ -1,15 +1,11 @@
 /**
- * Display metadata for Composio toolkits shown in the Skills grid.
+ * Display metadata for integration toolkits shown in the Skills grid.
  *
- * We intentionally keep a local catalog of every Composio managed-auth
- * toolkit so the desktop UI can render a broad connection surface even
- * before the live backend allowlist expands further. The live toolkit
- * list still wins for runtime availability; this file provides stable
- * names, categories, descriptions, and logos for rendering.
- *
- * Source of truth for the managed-auth list:
- * https://docs.composio.dev/toolkits/managed-auth (118 toolkits as of
- * May 1, 2026).
+ * China-localized catalog replacing the foreign Composio managed-auth
+ * toolkits. Provides stable names, categories, descriptions, and logos
+ * for Chinese domestic services (WeChat, DingTalk, Feishu, Alibaba Cloud,
+ * Baidu AI, etc.). The live toolkit list from the backend still wins for
+ * runtime availability; this file provides the frontend fallback catalog.
  */
 import { type ReactNode, useState } from 'react';
 
@@ -39,190 +35,81 @@ interface ManagedToolkitEntry {
 }
 
 const MANAGED_COMPOSIO_TOOLKITS: readonly ManagedToolkitEntry[] = Object.freeze([
-  { slug: 'airtable', name: 'Airtable' },
-  { slug: 'apaleo', name: 'Apaleo' },
-  { slug: 'asana', name: 'Asana' },
-  { slug: 'attio', name: 'Attio' },
-  { slug: 'basecamp', name: 'Basecamp' },
-  { slug: 'bitbucket', name: 'Bitbucket' },
-  { slug: 'blackbaud', name: 'Blackbaud' },
-  { slug: 'boldsign', name: 'Boldsign' },
-  { slug: 'box', name: 'Box' },
-  { slug: 'cal', name: 'Cal' },
-  { slug: 'calendly', name: 'Calendly' },
-  { slug: 'canva', name: 'Canva' },
-  { slug: 'capsule_crm', name: 'Capsule CRM' },
-  { slug: 'clickup', name: 'ClickUp' },
-  { slug: 'confluence', name: 'Confluence' },
-  { slug: 'contentful', name: 'Contentful' },
-  { slug: 'convex', name: 'Convex' },
-  { slug: 'crowdin', name: 'Crowdin' },
-  { slug: 'dart', name: 'Dart' },
-  { slug: 'dialpad', name: 'Dialpad' },
-  { slug: 'digital_ocean', name: 'DigitalOcean' },
-  { slug: 'discord', name: 'Discord' },
-  { slug: 'discordbot', name: 'Discord Bot' },
-  { slug: 'dropbox', name: 'Dropbox' },
-  { slug: 'dub', name: 'Dub' },
-  { slug: 'dynamics365', name: 'Dynamics 365' },
-  { slug: 'eventbrite', name: 'Eventbrite' },
-  { slug: 'excel', name: 'Excel' },
-  { slug: 'exist', name: 'Exist' },
-  { slug: 'facebook', name: 'Facebook' },
-  { slug: 'fathom', name: 'Fathom' },
-  { slug: 'figma', name: 'Figma' },
-  { slug: 'freeagent', name: 'Freeagent' },
-  { slug: 'freshbooks', name: 'FreshBooks' },
-  { slug: 'github', name: 'GitHub' },
-  { slug: 'gitlab', name: 'GitLab' },
-  { slug: 'gmail', name: 'Gmail' },
-  { slug: 'googleads', name: 'Google Ads' },
-  { slug: 'google_analytics', name: 'Google Analytics' },
-  { slug: 'googlebigquery', name: 'Google BigQuery' },
-  { slug: 'googlecalendar', name: 'Google Calendar' },
-  { slug: 'google_classroom', name: 'Google Classroom' },
-  { slug: 'googledocs', name: 'Google Docs' },
-  { slug: 'googledrive', name: 'Google Drive' },
-  { slug: 'google_maps', name: 'Google Maps' },
-  { slug: 'googlemeet', name: 'Google Meet' },
-  { slug: 'googlephotos', name: 'Google Photos' },
-  { slug: 'google_search_console', name: 'Google Search Console' },
-  { slug: 'googlesheets', name: 'Google Sheets' },
-  { slug: 'googleslides', name: 'Google Slides' },
-  { slug: 'googlesuper', name: 'Google Super' },
-  { slug: 'googletasks', name: 'Google Tasks' },
-  { slug: 'gorgias', name: 'Gorgias' },
-  { slug: 'gumroad', name: 'Gumroad' },
-  { slug: 'harvest', name: 'Harvest' },
-  { slug: 'hubspot', name: 'HubSpot' },
-  { slug: 'hugging_face', name: 'Hugging Face' },
-  { slug: 'instagram', name: 'Instagram' },
-  { slug: 'intercom', name: 'Intercom' },
-  { slug: 'jira', name: 'Jira' },
-  { slug: 'kit', name: 'Kit' },
-  { slug: 'linear', name: 'Linear' },
-  { slug: 'linkedin', name: 'LinkedIn' },
-  { slug: 'linkhut', name: 'Linkhut' },
-  { slug: 'mailchimp', name: 'Mailchimp' },
-  { slug: 'microsoft_teams', name: 'Microsoft Teams' },
-  { slug: 'miro', name: 'Miro' },
-  { slug: 'monday', name: 'Monday' },
-  { slug: 'moneybird', name: 'Moneybird' },
-  { slug: 'mural', name: 'Mural' },
-  { slug: 'notion', name: 'Notion' },
-  { slug: 'omnisend', name: 'Omnisend' },
-  { slug: 'one_drive', name: 'OneDrive' },
-  { slug: 'outlook', name: 'Outlook' },
-  { slug: 'pagerduty', name: 'PagerDuty' },
-  { slug: 'prisma', name: 'Prisma' },
-  { slug: 'productboard', name: 'Productboard' },
-  { slug: 'pushbullet', name: 'Pushbullet' },
-  { slug: 'quickbooks', name: 'QuickBooks' },
-  { slug: 'reddit', name: 'Reddit' },
-  { slug: 'reddit_ads', name: 'Reddit Ads' },
-  { slug: 'roam', name: 'Roam' },
-  { slug: 'salesforce', name: 'Salesforce' },
-  { slug: 'sentry', name: 'Sentry' },
-  { slug: 'servicem8', name: 'Servicem8' },
-  { slug: 'share_point', name: 'SharePoint' },
-  { slug: 'shippo', name: 'Shippo' },
-  { slug: 'slack', name: 'Slack' },
-  { slug: 'slackbot', name: 'Slackbot' },
-  { slug: 'splitwise', name: 'Splitwise' },
-  { slug: 'square', name: 'Square' },
-  { slug: 'stack_exchange', name: 'Stack Exchange' },
-  { slug: 'strava', name: 'Strava' },
-  { slug: 'stripe', name: 'Stripe' },
-  { slug: 'supabase', name: 'Supabase' },
-  { slug: 'ticketmaster', name: 'Ticketmaster' },
-  { slug: 'ticktick', name: 'Ticktick' },
-  { slug: 'timely', name: 'Timely' },
-  { slug: 'todoist', name: 'Todoist' },
-  { slug: 'toneden', name: 'Toneden' },
-  { slug: 'trello', name: 'Trello' },
-  { slug: 'typeform', name: 'Typeform' },
-  { slug: 'wakatime', name: 'WakaTime' },
-  { slug: 'webex', name: 'Webex' },
-  { slug: 'whatsapp', name: 'WhatsApp Business' },
-  { slug: 'wrike', name: 'Wrike' },
-  { slug: 'yandex', name: 'Yandex' },
-  { slug: 'ynab', name: 'YNAB' },
-  { slug: 'youtube', name: 'YouTube' },
-  { slug: 'zendesk', name: 'Zendesk' },
-  { slug: 'zoho', name: 'Zoho' },
-  { slug: 'zoho_bigin', name: 'Zoho Bigin' },
-  { slug: 'zoho_books', name: 'Zoho Books' },
-  { slug: 'zoho_desk', name: 'Zoho Desk' },
-  { slug: 'zoho_inventory', name: 'Zoho Inventory' },
-  { slug: 'zoho_invoice', name: 'Zoho Invoice' },
-  { slug: 'zoho_mail', name: 'Zoho Mail' },
-  { slug: 'zoom', name: 'Zoom' },
+  // ── 社交 / Social ──
+  { slug: 'weibo', name: '微博' },
+  { slug: 'xiaohongshu', name: '小红书' },
+  { slug: 'douyin', name: '抖音' },
+  { slug: 'kuaishou', name: '快手' },
+  { slug: 'bilibili', name: 'B站' },
+  { slug: 'zhihu', name: '知乎' },
+  // ── 办公协作 / Productivity ──
+  { slug: 'wps', name: 'WPS 金山文档' },
+  { slug: 'tencent_docs', name: '腾讯文档' },
+  { slug: 'feishu_docs', name: '飞书文档' },
+  { slug: 'shimo', name: '石墨文档' },
+  { slug: 'teambition', name: 'Teambition' },
+  { slug: 'yuque', name: '语雀' },
+  // ── 云平台 / Platform ──
+  { slug: 'aliyun', name: '阿里云' },
+  { slug: 'tencent_cloud', name: '腾讯云' },
+  { slug: 'baidu_cloud', name: '百度云' },
+  { slug: 'volcengine', name: '火山引擎' },
+  { slug: 'huawei_cloud', name: '华为云' },
+  { slug: 'jd_cloud', name: '京东云' },
+  { slug: 'gitee', name: '码云 Gitee' },
+  { slug: 'coding', name: 'Coding.net' },
+  // ── AI 平台 / AI ──
+  { slug: 'baidu_ai', name: '百度 AI' },
+  { slug: 'wenxin', name: '文心一言' },
+  { slug: 'tongyi_qianwen', name: '通义千问' },
+  { slug: 'iflytek_spark', name: '讯飞星火' },
+  { slug: 'zhipu_ai', name: '智谱 AI' },
+  { slug: 'moonshot_ai', name: '月之暗面' },
+  { slug: 'deepseek', name: 'DeepSeek' },
+  { slug: 'doubao', name: '豆包' },
+  // ── 设计工具 / Tools ──
+  { slug: 'lanhu', name: '蓝湖' },
+  { slug: 'jishisheji', name: '即时设计' },
+  { slug: 'processon', name: 'ProcessOn' },
+  { slug: 'mokup', name: '墨刀' },
+  // ── 支付 / Payments ──
+  { slug: 'alipay', name: '支付宝' },
+  { slug: 'wechat_pay', name: '微信支付' },
 ]);
 
 const MANAGED_TOOLKIT_NAME_BY_SLUG = new Map(
   MANAGED_COMPOSIO_TOOLKITS.map(entry => [entry.slug, entry.name])
 );
 
-const CHAT_KEYWORDS = ['discord', 'slack', 'teams', 'webex', 'whatsapp', 'dialpad'];
-const SOCIAL_KEYWORDS = [
-  'facebook',
-  'instagram',
-  'linkedin',
-  'reddit',
-  'youtube',
-  'stack_exchange',
-];
+const CHAT_KEYWORDS = ['wechat', 'dingtalk', 'feishu', 'qq', 'wecom'];
+const SOCIAL_KEYWORDS = ['weibo', 'xiaohongshu', 'douyin', 'kuaishou', 'bilibili', 'zhihu'];
 const PRODUCTIVITY_KEYWORDS = [
-  'gmail',
-  'calendar',
-  'drive',
+  'wps',
   'docs',
-  'doc',
-  'sheets',
-  'slides',
-  'tasks',
-  'todoist',
-  'trello',
-  'notion',
-  'box',
-  'dropbox',
-  'sharepoint',
-  'one_drive',
-  'onedrive',
-  'outlook',
-  'miro',
-  'mural',
-  'monday',
-  'clickup',
-  'linear',
-  'jira',
-  'confluence',
-  'asana',
-  'basecamp',
-  'wrike',
-  'cal',
-  'calendly',
-  'typeform',
-  'excel',
-  'figma',
-  'google',
+  'shimo',
+  'teambition',
+  'yuque',
+  'lanhu',
+  'jishisheji',
+  'processon',
+  'mokup',
 ];
 const PLATFORM_KEYWORDS = [
-  'github',
-  'gitlab',
-  'bitbucket',
-  'digital_ocean',
-  'contentful',
-  'supabase',
-  'convex',
-  'prisma',
-  'sentry',
-  'stripe',
-  'salesforce',
-  'hubspot',
-  'quickbooks',
-  'zendesk',
-  'zoho',
+  'aliyun',
+  'cloud',
+  'gitee',
+  'coding',
+  'volcengine',
+  'baidu_ai',
+  'wenxin',
+  'tongyi',
+  'iflytek',
+  'zhipu',
+  'moonshot',
+  'deepseek',
+  'doubao',
+  'alipay',
+  'wechat_pay',
 ];
 
 function GenericIntegrationIcon() {
@@ -278,30 +165,30 @@ function guessCategory(slug: string, name: string): SkillCategory {
 function defaultDescription(name: string, category: SkillCategory): string {
   switch (category) {
     case 'Chat':
-      return `Connect ${name} for messaging, inbox, and team communication workflows.`;
+      return `连接${name}，实现消息收发和团队沟通。`;
     case 'Social':
-      return `Connect ${name} for social publishing, community, and audience workflows.`;
+      return `连接${name}，实现内容发布和社区管理。`;
     case 'Productivity':
-      return `Connect ${name} for documents, planning, file, and day-to-day productivity workflows.`;
+      return `连接${name}，实现文档协作和日常办公。`;
     case 'Platform':
-      return `Connect ${name} for developer, platform, CRM, and business system workflows.`;
+      return `连接${name}，实现开发、运维和平台管理。`;
     default:
-      return `Connect ${name}.`;
+      return `连接${name}。`;
   }
 }
 
 function permissionLabelFor(category: SkillCategory): string {
   switch (category) {
     case 'Chat':
-      return 'Messages, channels, and communication data';
+      return '消息、频道和通讯数据';
     case 'Social':
-      return 'Posts, profiles, and social content';
+      return '内容、个人资料和社交数据';
     case 'Productivity':
-      return 'Docs, files, tasks, and workspace data';
+      return '文档、文件和协作数据';
     case 'Platform':
-      return 'Repos, records, tickets, and system data';
+      return '仓库、系统和管理数据';
     default:
-      return 'Connected account data';
+      return '已连接账户数据';
   }
 }
 

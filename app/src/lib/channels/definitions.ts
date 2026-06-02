@@ -118,4 +118,161 @@ export const FALLBACK_DEFINITIONS: ChannelDefinition[] = [
     ],
     capabilities: ['send_text', 'send_rich_text', 'receive_text'],
   },
+  {
+    id: 'wechat',
+    display_name: '微信',
+    description: '通过微信公众号或企业微信收发消息。',
+    icon: 'wechat',
+    auth_modes: [
+      {
+        mode: 'api_key',
+        description: '使用微信公众号 AppID 和 AppSecret 连接。',
+        fields: [
+          {
+            key: 'app_id',
+            label: 'AppID',
+            field_type: 'string',
+            required: true,
+            placeholder: '微信公众号 AppID',
+          },
+          {
+            key: 'app_secret',
+            label: 'AppSecret',
+            field_type: 'secret',
+            required: true,
+            placeholder: '微信公众号 AppSecret',
+          },
+        ],
+        auth_action: undefined,
+      },
+    ],
+    capabilities: ['send_text', 'receive_text', 'file_attachments'],
+  },
+  {
+    id: 'dingtalk',
+    display_name: '钉钉',
+    description: '通过钉钉机器人或应用收发消息。',
+    icon: 'dingtalk',
+    auth_modes: [
+      {
+        mode: 'api_key',
+        description: '使用钉钉机器人 Webhook 地址连接。',
+        fields: [
+          {
+            key: 'webhook_url',
+            label: 'Webhook 地址',
+            field_type: 'string',
+            required: true,
+            placeholder: 'https://oapi.dingtalk.com/robot/send?access_token=...',
+          },
+          {
+            key: 'secret',
+            label: '加签密钥 (可选)',
+            field_type: 'secret',
+            required: false,
+            placeholder: '机器人安全设置中的加签密钥',
+          },
+        ],
+        auth_action: undefined,
+      },
+    ],
+    capabilities: ['send_text', 'receive_text', 'typing'],
+  },
+  {
+    id: 'feishu',
+    display_name: '飞书',
+    description: '通过飞书机器人或应用收发消息。',
+    icon: 'feishu',
+    auth_modes: [
+      {
+        mode: 'api_key',
+        description: '使用飞书应用凭证连接。',
+        fields: [
+          {
+            key: 'app_id',
+            label: 'App ID',
+            field_type: 'string',
+            required: true,
+            placeholder: '飞书应用 App ID',
+          },
+          {
+            key: 'app_secret',
+            label: 'App Secret',
+            field_type: 'secret',
+            required: true,
+            placeholder: '飞书应用 App Secret',
+          },
+        ],
+        auth_action: undefined,
+      },
+    ],
+    capabilities: ['send_text', 'receive_text', 'threaded_replies', 'file_attachments'],
+  },
+  {
+    id: 'qq',
+    display_name: 'QQ',
+    description: '通过 QQ 机器人收发消息。',
+    icon: 'qq',
+    auth_modes: [
+      {
+        mode: 'bot_token',
+        description: '使用 QQ 机器人 Token 连接。',
+        fields: [
+          {
+            key: 'bot_token',
+            label: 'Bot Token',
+            field_type: 'secret',
+            required: true,
+            placeholder: 'QQ 机器人 Token',
+          },
+          {
+            key: 'bot_id',
+            label: 'Bot ID (AppID)',
+            field_type: 'string',
+            required: true,
+            placeholder: 'QQ 机器人 AppID',
+          },
+        ],
+        auth_action: undefined,
+      },
+    ],
+    capabilities: ['send_text', 'receive_text'],
+  },
+  {
+    id: 'wecom',
+    display_name: '企业微信',
+    description: '通过企业微信应用或机器人收发消息。',
+    icon: 'wecom',
+    auth_modes: [
+      {
+        mode: 'api_key',
+        description: '使用企业微信 CorpID 和 Secret 连接。',
+        fields: [
+          {
+            key: 'corp_id',
+            label: 'CorpID (企业ID)',
+            field_type: 'string',
+            required: true,
+            placeholder: '企业微信 CorpID',
+          },
+          {
+            key: 'corp_secret',
+            label: 'CorpSecret (应用Secret)',
+            field_type: 'secret',
+            required: true,
+            placeholder: '企业微信应用 Secret',
+          },
+          {
+            key: 'agent_id',
+            label: 'AgentID (应用ID)',
+            field_type: 'string',
+            required: true,
+            placeholder: '企业微信应用 AgentID',
+          },
+        ],
+        auth_action: undefined,
+      },
+    ],
+    capabilities: ['send_text', 'receive_text', 'file_attachments', 'typing'],
+  },
 ];

@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -271,9 +271,9 @@ describe('AIPanel', () => {
     expect(nextSettings.routing.coding).toEqual({ kind: 'openhuman' });
   });
 
-  // ─── API-key dialog: failed setCloudProviderKey does not add provider ────────
+  // ─── API-key dialog: setCloudProviderKey failure shows error but provider is added ────────
 
-  it('when setCloudProviderKey throws, the provider is NOT added to the draft', async () => {
+  it('when setCloudProviderKey throws, the provider is still added and error is shown', async () => {
     vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
     // Make setCloudProviderKey reject.
     vi.mocked(setCloudProviderKey).mockRejectedValue(new Error('key store failed'));
@@ -285,9 +285,6 @@ describe('AIPanel', () => {
       expect(screen.getByRole('switch', { name: /Connect OpenAI/i })).toBeInTheDocument()
     );
 
-    // Count provider chips before dialog interaction.
-    const chipsBefore = screen.getAllByRole('switch').length;
-
     // Open the dialog.
     fireEvent.click(screen.getByRole('switch', { name: /Connect OpenAI/i }));
     await waitFor(() =>
@@ -298,22 +295,18 @@ describe('AIPanel', () => {
     fireEvent.change(screen.getByLabelText(/API key/i), { target: { value: 'sk-bad-key' } });
     fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
 
-    // The panel silently catches the setCloudProviderKey error and does NOT
-    // mutate the draft. Because the panel's onSubmit returns (doesn't throw),
-    // the dialog's handleSave resolves without entering its catch block, leaving
-    // the dialog in the 'saving' phase with the button showing "Saving…".
-    //
     // Wait for setCloudProviderKey to have been called (confirms the flow ran).
     await waitFor(() => expect(vi.mocked(setCloudProviderKey)).toHaveBeenCalled());
 
-    // The dialog must still be open (setKeyDialogFor was never set to null).
-    expect(screen.getByRole('dialog', { name: /Connect OpenAI/i })).toBeInTheDocument();
+    // The dialog must still be open with the error displayed.
+    const dialog = screen.getByRole('dialog', { name: /Connect OpenAI/i });
+    expect(dialog).toBeInTheDocument();
 
-    // The number of provider toggle switches must not have grown — the failed
-    // provider was never added to the draft.
-    expect(screen.getAllByRole('switch').length).toBe(chipsBefore);
+    // The Save button should be back (not stuck in "Saving…").
+    expect(within(dialog).getByRole('button', { name: /^Save$/i })).toBeInTheDocument();
 
-    // Specifically: no "Disconnect OpenAI" switch (chip is still in off state).
-    expect(screen.queryByRole('switch', { name: /Disconnect OpenAI/i })).not.toBeInTheDocument();
+    // Provider was added to the draft before key persist was attempted —
+    // "Disconnect OpenAI" switch now appears.
+    expect(screen.getByRole('switch', { name: /Disconnect OpenAI/i })).toBeInTheDocument();
   });
 });

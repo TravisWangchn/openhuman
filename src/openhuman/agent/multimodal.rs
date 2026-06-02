@@ -159,6 +159,7 @@ pub async fn prepare_messages_for_provider(
 
         let content = compose_multimodal_message(&cleaned_text, &normalized_refs);
         normalized_messages.push(ChatMessage {
+            reasoning_content: message.reasoning_content.clone(),
             id: message.id.clone(),
             role: message.role.clone(),
             content,

@@ -41,6 +41,9 @@
     "rust:check": "pnpm --filter openhuman-app rust:check",
     "typecheck": "pnpm --filter openhuman-app compile"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "@sentry/cli"]
+  },
   "devDependencies": {
     "husky": "^9.1.7",
     "ws": "^8.20.0"

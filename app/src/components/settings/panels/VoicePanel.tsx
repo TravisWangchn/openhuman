@@ -30,6 +30,13 @@ import SettingsHeader from '../components/SettingsHeader';
 import { useSettingsNavigation } from '../hooks/useSettingsNavigation';
 import { ELEVENLABS_VOICE_PRESETS, isCuratedVoicePreset } from './elevenlabsVoicePresets';
 
+const DOUBAO_VOICE_PRESETS: ReadonlyArray<{ id: string; label: string }> = [
+  { id: 'BV001_streaming', label: '通用女声 (推荐)' },
+  { id: 'BV002_streaming', label: '通用男声' },
+  { id: 'BV700_streaming', label: '甜美女声' },
+  { id: 'BV701_streaming', label: '成熟女声' },
+];
+
 // Curated Piper voice presets — a handful of well-known English voices
 // covering male/female and US/GB accents at the recommended `medium`
 // quality tier. The full catalogue at
@@ -83,9 +90,12 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
   const [sttReady, setSttReady] = useState(false);
   // Local provider selectors — initialised from voice_status, persisted via
   // openhumanVoiceSetProviders on change. Empty string until first load.
-  const [sttProvider, setSttProvider] = useState<'cloud' | 'whisper' | ''>('');
-  const [ttsProvider, setTtsProvider] = useState<'cloud' | 'piper' | ''>('');
+  const [sttProvider, setSttProvider] = useState<'cloud' | 'whisper' | 'doubao' | ''>('');
+  const [ttsProvider, setTtsProvider] = useState<'cloud' | 'piper' | 'doubao' | ''>('');
   const [sttModel, setSttModel] = useState<string>('');
+  // 火山引擎（豆包）凭证
+  const [doubaoAppId, setDoubaoAppId] = useState<string>('');
+  const [doubaoAccessToken, setDoubaoAccessToken] = useState<string>('');
   const [ttsVoice, setTtsVoice] = useState<string>('');
   const [isSavingProviders, setIsSavingProviders] = useState(false);
   const [whisperInstall, setWhisperInstall] = useState<VoiceInstallStatus | null>(null);
@@ -165,11 +175,19 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
       // otherwise every poll tick could re-apply the server value and
       // clobber an in-flight user edit.
       if (voiceResponse.stt_provider) {
-        const seeded = voiceResponse.stt_provider === 'whisper' ? 'whisper' : 'cloud';
+        const seeded: 'cloud' | 'whisper' | 'doubao' = ['cloud', 'whisper', 'doubao'].includes(
+          voiceResponse.stt_provider
+        )
+          ? (voiceResponse.stt_provider as 'cloud' | 'whisper' | 'doubao')
+          : 'whisper';
         setSttProvider(prev => prev || seeded);
       }
       if (voiceResponse.tts_provider) {
-        const seeded = voiceResponse.tts_provider === 'piper' ? 'piper' : 'cloud';
+        const seeded: 'cloud' | 'piper' | 'doubao' = ['cloud', 'piper', 'doubao'].includes(
+          voiceResponse.tts_provider
+        )
+          ? (voiceResponse.tts_provider as 'cloud' | 'piper' | 'doubao')
+          : 'piper';
         setTtsProvider(prev => prev || seeded);
       }
       if (voiceResponse.stt_model_id) {
@@ -178,6 +196,7 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
       if (voiceResponse.tts_voice_id) {
         setTtsVoice(prev => prev || voiceResponse.tts_voice_id);
       }
+      // 豆包凭证不暴露给前端 — doubao_configured 仅用于 UI 指示
       const sttAssetState = assetsResponse.result.stt?.state;
       const sttAssetOk = sttAssetState === 'ready' || sttAssetState === 'ondemand';
       if (process.env.NODE_ENV !== 'production') {
@@ -302,10 +321,12 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
 
   const persistProviders = async (
     update: Partial<VoiceProvidersSnapshot> & {
-      stt_provider?: 'cloud' | 'whisper';
-      tts_provider?: 'cloud' | 'piper';
+      stt_provider?: 'cloud' | 'whisper' | 'doubao';
+      tts_provider?: 'cloud' | 'piper' | 'doubao';
       stt_model?: string;
       tts_voice?: string;
+      doubao_app_id?: string;
+      doubao_access_token?: string;
     }
   ) => {
     setIsSavingProviders(true);
@@ -316,6 +337,8 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
         tts_provider: update.tts_provider,
         stt_model: update.stt_model,
         tts_voice: update.tts_voice,
+        doubao_app_id: update.doubao_app_id,
+        doubao_access_token: update.doubao_access_token,
       });
       if (process.env.NODE_ENV !== 'production') {
         console.debug('[VoicePanel:providers] saved', snapshot);
@@ -331,11 +354,11 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
     }
   };
 
-  const onSttProviderChange = (next: 'cloud' | 'whisper') => {
+  const onSttProviderChange = (next: 'cloud' | 'whisper' | 'doubao') => {
     setSttProvider(next);
     void persistProviders({ stt_provider: next });
   };
-  const onTtsProviderChange = (next: 'cloud' | 'piper') => {
+  const onTtsProviderChange = (next: 'cloud' | 'piper' | 'doubao') => {
     setTtsProvider(next);
     void persistProviders({ tts_provider: next });
   };
@@ -530,9 +553,12 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                   data-testid="stt-provider-select"
                   value={sttProvider || 'cloud'}
                   disabled={isSavingProviders}
-                  onChange={e => onSttProviderChange(e.target.value as 'cloud' | 'whisper')}
+                  onChange={e =>
+                    onSttProviderChange(e.target.value as 'cloud' | 'whisper' | 'doubao')
+                  }
                   className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-400">
                   <option value="cloud">Cloud (Whisper proxy)</option>
+                  <option value="doubao">火山引擎 (Doubao)</option>
                   <option value="whisper" disabled={!whisperReady}>
                     Local Whisper{whisperReady ? '' : ' (install required)'}
                   </option>
@@ -616,9 +642,12 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
                   data-testid="tts-provider-select"
                   value={ttsProvider || 'cloud'}
                   disabled={isSavingProviders}
-                  onChange={e => onTtsProviderChange(e.target.value as 'cloud' | 'piper')}
+                  onChange={e =>
+                    onTtsProviderChange(e.target.value as 'cloud' | 'piper' | 'doubao')
+                  }
                   className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-400">
                   <option value="cloud">Cloud (ElevenLabs proxy)</option>
+                  <option value="doubao">火山引擎 (Doubao)</option>
                   <option value="piper" disabled={!piperReady}>
                     Local Piper{piperReady ? '' : ' (install required)'}
                   </option>
@@ -742,100 +771,174 @@ const VoicePanel = ({ embedded = false }: VoicePanelProps = {}) => {
         {ttsProvider !== 'piper' && (
           <section className="space-y-3" data-testid="mascot-voice-section">
             <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-4">
-              <div>
-                <h3 className="text-sm font-semibold text-stone-900">Mascot Voice</h3>
-                <p className="text-xs text-stone-500 mt-1">
-                  Pick the ElevenLabs voice the mascot uses for spoken replies. Switch among the
-                  curated presets, paste any voice id you have access to under{' '}
-                  <strong>Other…</strong>, or hit <strong>Reset</strong> to fall back to the shipped
-                  default.
-                </p>
-              </div>
+              {ttsProvider === 'doubao' ? (
+                <>
+                  <div>
+                    <h3 className="text-sm font-semibold text-stone-900">豆包语音 (Doubao)</h3>
+                    <p className="text-xs text-stone-500 mt-1">选择火山引擎 TTS 音色</p>
+                  </div>
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium text-stone-600">音色预设</span>
+                    <select
+                      aria-label="Doubao voice preset"
+                      value={storedMascotVoiceId ?? 'BV001_streaming'}
+                      onChange={e => onMascotVoicePresetChange(e.target.value)}
+                      className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-400">
+                      {DOUBAO_VOICE_PRESETS.map(v => (
+                        <option key={v.id} value={v.id}>
+                          {v.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => void onMascotVoicePreview()}
+                    disabled={isPreviewingMascotVoice}
+                    className="px-3 py-1.5 text-xs rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white">
+                    {isPreviewingMascotVoice ? 'Speaking…' : '试听'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <h3 className="text-sm font-semibold text-stone-900">
+                      {t('voice.mascotVoice')}
+                    </h3>
+                    <p className="text-xs text-stone-500 mt-1">{t('voice.mascotVoiceDesc')}</p>
+                  </div>
 
-              <label className="block space-y-1">
-                <span className="text-xs font-medium text-stone-600">Voice preset</span>
-                <select
-                  aria-label="Mascot voice preset"
-                  data-testid="mascot-voice-select"
-                  value={isCustomMascotVoice ? '__custom__' : effectiveMascotVoiceId}
-                  onChange={e => onMascotVoicePresetChange(e.target.value)}
-                  className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-400">
-                  {ELEVENLABS_VOICE_PRESETS.map(v => (
-                    <option key={v.id} value={v.id}>
-                      {v.label}
-                    </option>
-                  ))}
-                  <option value="__custom__">Other (paste voice id)…</option>
-                </select>
-              </label>
+                  <label className="block space-y-1">
+                    <span className="text-xs font-medium text-stone-600">
+                      {t('voice.voicePreset')}
+                    </span>
+                    <select
+                      aria-label="Mascot voice preset"
+                      data-testid="mascot-voice-select"
+                      value={isCustomMascotVoice ? '__custom__' : effectiveMascotVoiceId}
+                      onChange={e => onMascotVoicePresetChange(e.target.value)}
+                      className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-1 focus:ring-primary-400">
+                      {ELEVENLABS_VOICE_PRESETS.map(v => (
+                        <option key={v.id} value={v.id}>
+                          {v.label}
+                        </option>
+                      ))}
+                      <option value="__custom__">{t('voice.otherVoice')}</option>
+                    </select>
+                  </label>
 
-              {isCustomMascotVoice && (
-                <label className="block space-y-1">
-                  <span className="text-xs font-medium text-stone-600">Custom voice id</span>
-                  <div className="flex gap-2">
-                    <input
-                      aria-label="Custom ElevenLabs voice id"
-                      data-testid="mascot-voice-input"
-                      value={mascotVoiceDraft}
-                      placeholder="e.g. 21m00Tcm4TlvDq8ikWAM"
-                      onChange={e => setMascotVoiceDraft(e.target.value)}
-                      className="flex-1 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
-                    />
+                  {isCustomMascotVoice && (
+                    <label className="block space-y-1">
+                      <span className="text-xs font-medium text-stone-600">
+                        {t('voice.customVoiceId')}
+                      </span>
+                      <div className="flex gap-2">
+                        <input
+                          aria-label="Custom ElevenLabs voice id"
+                          data-testid="mascot-voice-input"
+                          value={mascotVoiceDraft}
+                          placeholder="e.g. 21m00Tcm4TlvDq8ikWAM"
+                          onChange={e => setMascotVoiceDraft(e.target.value)}
+                          className="flex-1 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
+                        />
+                        <button
+                          type="button"
+                          data-testid="mascot-voice-save-paste"
+                          onClick={onMascotVoiceSavePaste}
+                          disabled={mascotVoiceDraft.trim() === (storedMascotVoiceId ?? '').trim()}
+                          className="px-3 py-1.5 text-xs rounded-md bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white">
+                          {t('common.save')}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-stone-500">
+                        {t('voice.findVoiceIds')}{' '}
+                        <code className="font-mono">api.elevenlabs.io/v1/voices</code>{' '}
+                        {t('voice.orDashboard')}
+                      </p>
+                    </label>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      data-testid="mascot-voice-save-paste"
-                      onClick={onMascotVoiceSavePaste}
-                      disabled={mascotVoiceDraft.trim() === (storedMascotVoiceId ?? '').trim()}
-                      className="px-3 py-1.5 text-xs rounded-md bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white">
-                      Save
+                      data-testid="mascot-voice-preview"
+                      onClick={() => void onMascotVoicePreview()}
+                      disabled={isPreviewingMascotVoice}
+                      className="px-3 py-1.5 text-xs rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white">
+                      {isPreviewingMascotVoice ? t('voice.previewing') : t('voice.previewVoice')}
                     </button>
+                    <button
+                      type="button"
+                      data-testid="mascot-voice-reset"
+                      onClick={onMascotVoiceReset}
+                      disabled={storedMascotVoiceId == null}
+                      title={
+                        storedMascotVoiceId == null
+                          ? t('voice.alreadyDefault')
+                          : t('voice.restoreDefault')
+                      }
+                      className="px-3 py-1.5 text-xs rounded-md border border-stone-300 hover:border-stone-400 disabled:opacity-60 text-stone-700">
+                      {t('voice.resetToDefault')}
+                    </button>
+                    <span
+                      data-testid="mascot-voice-current"
+                      className="ml-1 text-[11px] text-stone-500 truncate max-w-[18rem]"
+                      title={effectiveMascotVoiceId}>
+                      {t('voice.current')}:{' '}
+                      <code className="font-mono">{effectiveMascotVoiceId}</code>
+                    </span>
                   </div>
-                  <p className="text-[11px] text-stone-500">
-                    Find voice ids at <code className="font-mono">api.elevenlabs.io/v1/voices</code>{' '}
-                    or your ElevenLabs dashboard. Only the id is stored — your API key stays on the
-                    backend.
-                  </p>
-                </label>
-              )}
 
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  data-testid="mascot-voice-preview"
-                  onClick={() => void onMascotVoicePreview()}
-                  disabled={isPreviewingMascotVoice}
-                  className="px-3 py-1.5 text-xs rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white">
-                  {isPreviewingMascotVoice ? 'Previewing…' : 'Preview voice'}
-                </button>
-                <button
-                  type="button"
-                  data-testid="mascot-voice-reset"
-                  onClick={onMascotVoiceReset}
-                  disabled={storedMascotVoiceId == null}
-                  title={
-                    storedMascotVoiceId == null
-                      ? 'Already using the shipped default voice'
-                      : 'Restore the shipped default mascot voice'
-                  }
-                  className="px-3 py-1.5 text-xs rounded-md border border-stone-300 hover:border-stone-400 disabled:opacity-60 text-stone-700">
-                  Reset to default
-                </button>
-                <span
-                  data-testid="mascot-voice-current"
-                  className="ml-1 text-[11px] text-stone-500 truncate max-w-[18rem]"
-                  title={effectiveMascotVoiceId}>
-                  current: <code className="font-mono">{effectiveMascotVoiceId}</code>
-                </span>
+                  {mascotVoicePreviewError && (
+                    <div
+                      data-testid="mascot-voice-preview-error"
+                      className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                      {t('voice.previewFailed')}: {mascotVoicePreviewError}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* 火山引擎（豆包）凭证配置 — 当任一提供者为 doubao 时显示 */}
+        {(sttProvider === 'doubao' || ttsProvider === 'doubao') && (
+          <section className="space-y-3" data-testid="doubao-credentials-section">
+            <div className="bg-stone-50 rounded-lg border border-stone-200 p-4 space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-stone-900">
+                  {t('voice.doubaoCredentials')}
+                </h3>
+                <p className="text-xs text-stone-500 mt-1">{t('voice.doubaoCredentialsDesc')}</p>
               </div>
-
-              {mascotVoicePreviewError && (
-                <div
-                  data-testid="mascot-voice-preview-error"
-                  className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                  Voice preview failed: {mascotVoicePreviewError}. Reply speech will fall back to
-                  the default voice on the next reply.
-                </div>
-              )}
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-stone-600">{t('voice.doubaoAppId')}</span>
+                <input
+                  aria-label="Doubao App ID"
+                  data-testid="doubao-app-id-input"
+                  value={doubaoAppId}
+                  placeholder="火山引擎 App ID"
+                  onChange={e => setDoubaoAppId(e.target.value)}
+                  onBlur={() => void persistProviders({ doubao_app_id: doubaoAppId })}
+                  className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-stone-600">
+                  {t('voice.doubaoAccessToken')}
+                </span>
+                <input
+                  aria-label="Doubao Access Token"
+                  data-testid="doubao-access-token-input"
+                  type="password"
+                  value={doubaoAccessToken}
+                  placeholder="火山引擎 Access Token"
+                  onChange={e => setDoubaoAccessToken(e.target.value)}
+                  onBlur={() => void persistProviders({ doubao_access_token: doubaoAccessToken })}
+                  className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-1 focus:ring-primary-400"
+                />
+              </label>
             </div>
           </section>
         )}

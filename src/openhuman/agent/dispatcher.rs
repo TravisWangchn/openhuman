@@ -143,8 +143,19 @@ impl ToolDispatcher for XmlToolDispatcher {
             .iter()
             .flat_map(|msg| match msg {
                 ConversationMessage::Chat(chat) => vec![chat.clone()],
-                ConversationMessage::AssistantToolCalls { text, .. } => {
-                    vec![ChatMessage::assistant(text.clone().unwrap_or_default())]
+                ConversationMessage::AssistantToolCalls {
+                    text,
+                    reasoning_content,
+                    ..
+                } => {
+                    if let Some(rc) = reasoning_content {
+                        vec![ChatMessage::assistant_with_reasoning(
+                            text.clone().unwrap_or_default(),
+                            rc.clone(),
+                        )]
+                    } else {
+                        vec![ChatMessage::assistant(text.clone().unwrap_or_default())]
+                    }
                 }
                 ConversationMessage::ToolResults(results) => {
                     let mut content = String::new();
@@ -341,8 +352,19 @@ impl ToolDispatcher for PFormatToolDispatcher {
             .iter()
             .flat_map(|msg| match msg {
                 ConversationMessage::Chat(chat) => vec![chat.clone()],
-                ConversationMessage::AssistantToolCalls { text, .. } => {
-                    vec![ChatMessage::assistant(text.clone().unwrap_or_default())]
+                ConversationMessage::AssistantToolCalls {
+                    text,
+                    reasoning_content,
+                    ..
+                } => {
+                    if let Some(rc) = reasoning_content {
+                        vec![ChatMessage::assistant_with_reasoning(
+                            text.clone().unwrap_or_default(),
+                            rc.clone(),
+                        )]
+                    } else {
+                        vec![ChatMessage::assistant(text.clone().unwrap_or_default())]
+                    }
                 }
                 ConversationMessage::ToolResults(results) => {
                     let mut content = String::new();
@@ -464,12 +486,23 @@ impl ToolDispatcher for NativeToolDispatcher {
             .iter()
             .flat_map(|msg| match msg {
                 ConversationMessage::Chat(chat) => vec![chat.clone()],
-                ConversationMessage::AssistantToolCalls { text, tool_calls } => {
+                ConversationMessage::AssistantToolCalls {
+                    text,
+                    tool_calls,
+                    reasoning_content,
+                } => {
                     let payload = serde_json::json!({
                         "content": text,
                         "tool_calls": tool_calls,
                     });
-                    vec![ChatMessage::assistant(payload.to_string())]
+                    if let Some(rc) = reasoning_content {
+                        vec![ChatMessage::assistant_with_reasoning(
+                            payload.to_string(),
+                            rc.clone(),
+                        )]
+                    } else {
+                        vec![ChatMessage::assistant(payload.to_string())]
+                    }
                 }
                 ConversationMessage::ToolResults(results) => results
                     .iter()

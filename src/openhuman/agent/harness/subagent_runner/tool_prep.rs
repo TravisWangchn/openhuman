@@ -195,11 +195,15 @@ pub(crate) fn load_prompt_source(
             // Try the workspace's `agent/prompts/` first (so users can
             // override built-in prompts), then fall back to the crate's
             // own bundled prompts via `include_str!`-style lookup.
-            let workspace_path = workspace_dir.join("agent").join("prompts").join(path);
-            if workspace_path.is_file() {
-                return std::fs::read_to_string(&workspace_path).map_err(|e| {
+            // Both paths are validated to prevent traversal outside the workspace.
+            let workspace_prompts_path = workspace_dir.join("agent").join("prompts").join(path);
+            if let Some(resolved) = crate::openhuman::security::validate_workspace_path(
+                workspace_dir,
+                &workspace_prompts_path,
+            ) {
+                return std::fs::read_to_string(&resolved).map_err(|e| {
                     SubagentRunError::PromptLoad {
-                        path: workspace_path.display().to_string(),
+                        path: resolved.display().to_string(),
                         source: e,
                     }
                 });
@@ -215,17 +219,20 @@ pub(crate) fn load_prompt_source(
             // missing files as an empty body (the runner will fall
             // back to a generic role hint).
             let workspace_root_path = workspace_dir.join(path);
-            if workspace_root_path.is_file() {
-                return std::fs::read_to_string(&workspace_root_path).map_err(|e| {
+            if let Some(resolved) = crate::openhuman::security::validate_workspace_path(
+                workspace_dir,
+                &workspace_root_path,
+            ) {
+                return std::fs::read_to_string(&resolved).map_err(|e| {
                     SubagentRunError::PromptLoad {
-                        path: workspace_root_path.display().to_string(),
+                        path: resolved.display().to_string(),
                         source: e,
                     }
                 });
             }
             tracing::warn!(
                 path = %path,
-                "[subagent_runner] archetype prompt file not found, using empty body"
+                "[subagent_runner] archetype prompt file not found, unreadable, or outside workspace"
             );
             Ok(String::new())
         }

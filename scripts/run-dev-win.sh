@@ -14,7 +14,7 @@ source "$REPO_ROOT/scripts/load-dotenv.sh"
 
 # When pnpm/PowerShell/cmd launch `bash.exe` directly, the spawned shell
 # inherits the parent PATH and the MSYS utility directory (`Git\usr\bin`)
-# may be absent — bash runs, but `cygpath`, `mktemp`, `grep`, `sort`, etc.
+# may be absent 閳?bash runs, but `cygpath`, `mktemp`, `grep`, `sort`, etc.
 # are missing. Probe known Git-for-Windows install locations and prepend
 # `usr/bin` so the rest of the script works regardless of launcher.
 if ! command -v cygpath >/dev/null 2>&1; then
@@ -24,6 +24,16 @@ if ! command -v cygpath >/dev/null 2>&1; then
       break
     fi
   done
+fi
+
+# Last-resort fallback: ask cmd.exe where cygpath lives (works even when
+# bash is launched from cmd/PowerShell without MSYS2 path mapping).
+if ! command -v cygpath >/dev/null 2>&1; then
+  cygpath_win="$(cmd.exe //c "where cygpath.exe 2>nul" 2>/dev/null | head -1 | tr -d '\r' || true)"
+  if [[ -n "$cygpath_win" && -f "$cygpath_win" ]]; then
+    cygpath_dir="$(dirname "$cygpath_win")"
+    export PATH="$cygpath_dir:$PATH"
+  fi
 fi
 
 if ! command -v cygpath >/dev/null 2>&1; then
@@ -38,20 +48,20 @@ if [[ -z "${LOCALAPPDATA:-}" ]]; then
   exit 1
 fi
 
-# ─────────────────────────────────────────────────────────────────────────────
+# 閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓
 # Restore the real Windows-side PATH.
 #
 # Git for Windows' bash sources /etc/profile + /etc/profile.d/* on every
 # spawn, which REPLACES the inherited Windows PATH with an MSYS-only
-# default (/usr/local/bin:/usr/bin:/bin:…). That wipes every tool the
-# parent shell saw — node, cargo, pnpm, ninja, cmake, etc. — and breaks
+# default (/usr/local/bin:/usr/bin:/bin:閳?. That wipes every tool the
+# parent shell saw 閳?node, cargo, pnpm, ninja, cmake, etc. 閳?and breaks
 # any downstream script that assumes PATH inheritance.
 #
 # Pull the full machine + user PATH from a cmd.exe subprocess (which DOES
 # inherit the unaltered Windows PATH from its parent), convert each entry
 # to MSYS form, and append it to the current PATH. We append (not prepend)
 # so MSYS coreutils (cygpath, grep, sed, mktemp) still resolve first.
-# ─────────────────────────────────────────────────────────────────────────────
+# 閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓
 cmd_exe_for_path="$(command -v cmd.exe 2>/dev/null || command -v cmd 2>/dev/null || echo /c/Windows/System32/cmd.exe)"
 if [[ -x "$cmd_exe_for_path" ]]; then
   windows_path_raw="$("$cmd_exe_for_path" //c "echo %PATH%" 2>/dev/null | tr -d '\r' | head -n1 || true)"
@@ -65,18 +75,25 @@ if [[ -x "$cmd_exe_for_path" ]]; then
     done
     if [[ -n "$windows_path_unix" ]]; then
       export PATH="$PATH:$windows_path_unix"
-      echo "[run-dev-win] appended Windows-side PATH (node/cargo/pnpm/… now findable)"
+      echo "[run-dev-win] appended Windows-side PATH (node/cargo/pnpm/閳?now findable)"
     else
-      echo "[run-dev-win] WARNING: cmd.exe PATH query returned no entries — node/cargo may be missing downstream" >&2
+      echo "[run-dev-win] WARNING: cmd.exe PATH query returned no entries 閳?node/cargo may be missing downstream" >&2
     fi
   else
-    echo "[run-dev-win] WARNING: cmd.exe PATH query returned empty — node/cargo may be missing downstream" >&2
+    echo "[run-dev-win] WARNING: cmd.exe PATH query returned empty 閳?node/cargo may be missing downstream" >&2
   fi
 else
-  echo "[run-dev-win] WARNING: cmd.exe not found at '$cmd_exe_for_path' — Windows PATH restoration skipped; node/cargo may be missing downstream" >&2
+  echo "[run-dev-win] WARNING: cmd.exe not found at '$cmd_exe_for_path' 閳?Windows PATH restoration skipped; node/cargo may be missing downstream" >&2
 fi
 
 export LIBCLANG_PATH="/c/Program Files/LLVM/bin"
+
+# whisper-rs-sys: cmake-rs auto-detects clang-cl (via LIBCLANG_PATH) and passes
+# it to CMake with the Ninja generator. When VSINSTALLDIR/VCINSTALLDIR are also
+# set, CMake rejects "Ninja + instance specification" and fails. Force MSVC's
+# cl.exe so cmake-rs uses it instead, avoiding the incompatible combination.
+export CC=cl.exe
+export CXX=cl.exe
 
 # Bootstrap the MSVC C++ build environment in this shell so cl.exe / link.exe /
 # Windows SDK headers are reachable without launching the "x64 Native Tools
@@ -88,6 +105,107 @@ export LIBCLANG_PATH="/c/Program Files/LLVM/bin"
 # Without this, the Ninja generator fails to find cl.exe and CMake-driven
 # native crates (whisper-rs-sys, etc.) error out at the C++ compilation step.
 if ! command -v cl.exe >/dev/null 2>&1; then
+  # --- Pre-captured MSVC env fast path ---
+  # When bash is spawned from the VS Native Tools Command Prompt, the
+  # inline .bat launcher below can produce garbled output on Chinese
+  # Windows (GBK stdout through MSYS pipe corrupts vcvars output).
+  # Capture env from the VS prompt before launching bash:
+  #   echo %PATH% > scripts\.msvc-path.txt && echo %INCLUDE% >> ...
+  MSVC_CAPTURE="$REPO_ROOT/scripts/.msvc-path.txt"
+  if [[ -f "$MSVC_CAPTURE" ]]; then
+    echo "[run-dev-win] using pre-captured MSVC env from $MSVC_CAPTURE"
+    captured_path=""
+    captured_include=""
+    captured_lib=""
+    captured_libpath=""
+    captured_sdk_dir=""
+    captured_sdk_ver=""
+    captured_vctools=""
+    line_idx=0
+    while IFS= read -r line; do
+      line="${line%$'\r'}"
+      case $line_idx in
+        0) captured_path="$line"  ;;
+        1) captured_include="$line" ;;
+        2) captured_lib="$line"  ;;
+        3) captured_libpath="$line" ;;
+        4) captured_sdk_dir="$line" ;;
+        5) captured_sdk_ver="$line" ;;
+        6) captured_vctools="$line" ;;
+      esac
+      line_idx=$((line_idx + 1))
+    done < "$MSVC_CAPTURE"
+
+    if [[ -n "$captured_path" ]]; then
+      new_path=""
+      IFS=';' read -ra path_entries <<< "$captured_path"
+      for entry in "${path_entries[@]}"; do
+        [[ -z "$entry" ]] && continue
+        unix_entry="$(cygpath -u "$entry" 2>/dev/null || printf '%s' "$entry")"
+        new_path="${new_path}${new_path:+:}${unix_entry}"
+      done
+      export PATH="$new_path:$PATH"
+    fi
+    # Normalize double backslashes and trim trailing spaces from
+    # captured env vars.  cmd.exe echo of vcvars output sometimes doubles
+    # backslashes and appends a trailing space; the MSVC linker treats
+    # \\ literally and fails to open Windows SDK libs.
+    if [[ -n "$captured_include" ]]; then
+      captured_include="${captured_include//\\\\/\\}"
+      captured_include="${captured_include%"${captured_include##*[![:space:]]}"}"
+      export INCLUDE="$captured_include"
+    fi
+    if [[ -n "$captured_lib" ]]; then
+      captured_lib="${captured_lib//\\\\/\\}"
+      captured_lib="${captured_lib%"${captured_lib##*[![:space:]]}"}"
+      export LIB="$captured_lib"
+    fi
+    if [[ -n "$captured_libpath" ]]; then
+      captured_libpath="${captured_libpath//\\\\/\\}"
+      captured_libpath="${captured_libpath%"${captured_libpath##*[![:space:]]}"}"
+      export LIBPATH="$captured_libpath"
+    fi
+    [[ -n "$captured_sdk_dir" ]] && export WindowsSdkDir="$captured_sdk_dir"
+    [[ -n "$captured_sdk_ver" ]] && export WindowsSDKVersion="$captured_sdk_ver"
+    # captured_vctools may be the literal string '%VCToolsInstallDir%'
+    # when vcvars64.bat degraded — skip it in that case.
+    if [[ -n "$captured_vctools" && "$captured_vctools" != "%VCToolsInstallDir%" ]]; then
+      export VCToolsInstallDir="$captured_vctools"
+    fi
+
+    # The captured PATH from the VS prompt may not include the actual
+    # cl.exe directory (added dynamically by vcvars64.bat). Find it by
+    # globbing the MSVC tools tree under the VS install dir.
+    for vs_root in "/c/Program Files/Microsoft Visual Studio/2022/Professional" \
+                   "/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools"; do
+      CL_DIR="$(ls -d "$vs_root/VC/Tools/MSVC"/*/bin/Hostx64/x64 2>/dev/null | sort | tail -n1 || true)"
+      if [[ -n "$CL_DIR" && -f "$CL_DIR/cl.exe" ]]; then
+        export PATH="$CL_DIR:$PATH"
+        echo "[run-dev-win] cl.exe discovered at $CL_DIR"
+        # Derive the MSVC CRT lib directory from the same toolchain
+        # version.  The captured LIB (above) only has Windows SDK paths
+        # (ucrt + um); without the CRT libs the linker fails with
+        # LNK1181 on kernel32.lib.  CL_DIR is:
+        #   .../VC/Tools/MSVC/<version>/bin/Hostx64/x64
+        # so the lib dir is:
+        #   .../VC/Tools/MSVC/<version>/lib/x64
+        MSVC_LIB_UNIX="${CL_DIR%/bin/Hostx64/x64}/lib/x64"
+        if [[ -d "$MSVC_LIB_UNIX" && -f "$MSVC_LIB_UNIX/vcruntime.lib" ]]; then
+          MSVC_LIB_WIN="$(cygpath -w "$MSVC_LIB_UNIX")"
+          export LIB="${MSVC_LIB_WIN}${LIB:+;$LIB}"
+          echo "[run-dev-win] MSVC CRT lib dir added to LIB: $MSVC_LIB_WIN"
+        else
+          echo "[run-dev-win] WARNING: MSVC CRT lib dir not found at $MSVC_LIB_UNIX" >&2
+        fi
+        break
+      fi
+    done
+  fi
+
+  if command -v cl.exe >/dev/null 2>&1; then
+    echo "[run-dev-win] MSVC env loaded via pre-captured file (cl.exe at $(command -v cl.exe))"
+  else
+
   vswhere_exe="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
   if [[ ! -x "$vswhere_exe" ]]; then
     echo "[run-dev-win] vswhere.exe not found at $vswhere_exe" >&2
@@ -109,19 +227,19 @@ if ! command -v cl.exe >/dev/null 2>&1; then
   vcvars_launcher_win="$(cygpath -w "$vcvars_launcher")"
   # vcvarsall.bat (called by vcvars64.bat) shells out to `vswhere` by bare
   # name to locate Windows SDK / MSVC component versions. If vswhere isn't
-  # on cmd.exe's PATH, vcvarsall silently degrades — it sets `cl.exe` on
+  # on cmd.exe's PATH, vcvarsall silently degrades 閳?it sets `cl.exe` on
   # PATH but skips the Windows SDK `LIB` / `INCLUDE` entries, which then
   # fails the link step downstream with `LNK1181: cannot open input file
   # 'kernel32.lib'`. The VS Installer dir holding vswhere is rarely on the
   # system PATH (Microsoft expects you to invoke vswhere by absolute path),
   # so we prepend it inside the launcher .bat before calling vcvars.
   vswhere_dir_win="$(cygpath -w "$(dirname "$vswhere_exe")")"
-  # Note: we deliberately do NOT redirect vcvars64.bat's stdout to NUL — MSYS
+  # Note: we deliberately do NOT redirect vcvars64.bat's stdout to NUL 閳?MSYS
   # would rewrite `NUL` to `/dev/null` while writing the .bat. Instead we let
   # vcvars64 print its banner and filter for `KEY=VALUE` lines below.
   printf '@echo off\r\nset "PATH=%s;%%PATH%%"\r\ncall "%s"\r\nset\r\n' \
     "$vswhere_dir_win" "$vcvars_bat" > "$vcvars_launcher"
-  # Note: do NOT set MSYS_NO_PATHCONV here — disabling path conversion stops
+  # Note: do NOT set MSYS_NO_PATHCONV here 閳?disabling path conversion stops
   # MSYS from rewriting `//c` to `/c`, leaving cmd to treat `//c` as an
   # unknown switch and open an interactive shell instead of executing the
   # launcher.
@@ -165,7 +283,7 @@ if ! command -v cl.exe >/dev/null 2>&1; then
         export PATH="$new_path:$pre_vcvars_path"
         ;;
       INCLUDE|LIB|LIBPATH)
-        # Compiler/linker want Windows-style ;-separated paths — leave as-is.
+        # Compiler/linker want Windows-style ;-separated paths 閳?leave as-is.
         export "$key=$value"
         ;;
       VSCMD_*|VS[0-9]*COMNTOOLS|VCToolsInstallDir|VCToolsRedistDir|VCINSTALLDIR|VSINSTALLDIR|WindowsSdkDir|WindowsSDKVersion|UCRTVersion|UniversalCRTSdkDir|Platform)
@@ -174,16 +292,17 @@ if ! command -v cl.exe >/dev/null 2>&1; then
     esac
   done <<< "$msvc_env"
   if ! command -v cl.exe >/dev/null 2>&1; then
-    echo "[run-dev-win] MSVC env load failed — cl.exe still not on PATH" >&2
+    echo "[run-dev-win] MSVC env load failed 閳?cl.exe still not on PATH" >&2
     exit 1
   fi
   echo "[run-dev-win] MSVC env loaded (cl.exe at $(command -v cl.exe))"
+  fi
 fi
 
 # Windows SDK self-discovery fallback.
 #
 # vcvars64.bat can silently "succeed" while only setting up the MSVC half
-# of the toolchain — when vswhere is missing from PATH at the time
+# of the toolchain 閳?when vswhere is missing from PATH at the time
 # vcvars runs, or when the Windows SDK isn't registered in the way
 # vcvarsall expects, it skips setting `WindowsSdkDir` / `WindowsSDKVersion`
 # and only appends MSVC's own libs to `LIB`. The linker then fails with
@@ -198,7 +317,7 @@ if [[ -z "${WindowsSdkDir:-}" || "${WindowsSDKVersion:-}" == "\\" || -z "${Windo
   sdk_root_unix="/c/Program Files (x86)/Windows Kits/10"
   if [[ -d "$sdk_root_unix/Lib" ]]; then
     sdk_version="$(ls -d "$sdk_root_unix"/Lib/*/ 2>/dev/null \
-      | sort -V | tail -n1 \
+      | sort | tail -n1 \
       | sed 's|/$||; s|.*/||')"
     if [[ -n "$sdk_version" && -f "$sdk_root_unix/Lib/$sdk_version/um/x64/kernel32.lib" ]]; then
       sdk_root_win="$(cygpath -w "$sdk_root_unix")"
@@ -222,7 +341,7 @@ if [[ -z "${WindowsSdkDir:-}" || "${WindowsSDKVersion:-}" == "\\" || -z "${Windo
         export PATH="$sdk_bin_unix:$PATH"
         echo "[run-dev-win] SDK bin dir (with rc.exe) prepended to PATH: $sdk_bin_unix"
       else
-        echo "[run-dev-win] WARNING: rc.exe not found at $sdk_bin_unix — CMake-driven crates will fail" >&2
+        echo "[run-dev-win] WARNING: rc.exe not found at $sdk_bin_unix 閳?CMake-driven crates will fail" >&2
       fi
       echo "[run-dev-win] Windows SDK discovered manually (vcvars degraded): version ${sdk_version}"
     else
@@ -235,11 +354,72 @@ if [[ -z "${WindowsSdkDir:-}" || "${WindowsSDKVersion:-}" == "\\" || -z "${Windo
   fi
 fi
 
+# Ensure the MSVC CRT lib and include directories are on LIB / INCLUDE.
+#
+# The pre-captured .msvc-path.txt only snapshots Windows SDK paths (ucrt
+# + um); when VCToolsInstallDir is unexpanded (literal '%VCToolsInstallDir%'),
+# the MSVC CRT paths (VC/Tools/MSVC/<version>/lib/x64 and .../include) are
+# missing.  On subsequent runs cl.exe is already on PATH so the bootstrapping
+# block above is skipped entirely.  Without the CRT the linker fails with
+# LNK1181, and without the CRT headers clang-cl fails with 'vcruntime.h'
+# not found.
+#
+# This block runs unconditionally and prepends the MSVC CRT dirs when they
+# are not already present.  Discovery uses the same glob as the cl.exe
+# search above.
+MSVC_CRT_ADDED=""
+for vs_root in "/c/Program Files/Microsoft Visual Studio/2022/Professional" \
+               "/c/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools"; do
+  # Find the newest MSVC toolchain version.
+  MSVC_VER_UNIX="$(ls -d "$vs_root/VC/Tools/MSVC"/*/ 2>/dev/null | sort | tail -n1 || true)"
+  if [[ -z "$MSVC_VER_UNIX" ]]; then
+    continue
+  fi
+  MSVC_VER_UNIX="${MSVC_VER_UNIX%/}"
+
+  # --- CRT headers (vcruntime.h, etc.) ---
+  MSVC_INC_UNIX="$MSVC_VER_UNIX/include"
+  if [[ -d "$MSVC_INC_UNIX" && -f "$MSVC_INC_UNIX/vcruntime.h" ]]; then
+    MSVC_INC_WIN="$(cygpath -w "$MSVC_INC_UNIX")"
+    if [[ ";${INCLUDE:-};" != *";${MSVC_INC_WIN};"* ]]; then
+      export INCLUDE="${MSVC_INC_WIN}${INCLUDE:+;$INCLUDE}"
+      MSVC_CRT_ADDED="1"
+      echo "[run-dev-win] MSVC CRT include dir added to INCLUDE: $MSVC_INC_WIN"
+    fi
+  fi
+
+  # --- CRT libs (vcruntime.lib, etc.) ---
+  MSVC_LIB_UNIX="$MSVC_VER_UNIX/lib/x64"
+  if [[ -d "$MSVC_LIB_UNIX" && -f "$MSVC_LIB_UNIX/vcruntime.lib" ]]; then
+    MSVC_LIB_WIN="$(cygpath -w "$MSVC_LIB_UNIX")"
+    if [[ ";${LIB:-};" != *";${MSVC_LIB_WIN};"* ]]; then
+      export LIB="${MSVC_LIB_WIN}${LIB:+;$LIB}"
+      MSVC_CRT_ADDED="1"
+      echo "[run-dev-win] MSVC CRT lib dir added to LIB: $MSVC_LIB_WIN"
+    fi
+  fi
+
+  # --- ATL/MFC libs (optional, some crates need atls.lib) ---
+  MSVC_ATL_LIB_UNIX="$MSVC_VER_UNIX/atlmfc/lib/x64"
+  if [[ -d "$MSVC_ATL_LIB_UNIX" ]]; then
+    MSVC_ATL_LIB_WIN="$(cygpath -w "$MSVC_ATL_LIB_UNIX")"
+    if [[ ";${LIB:-};" != *";${MSVC_ATL_LIB_WIN};"* ]]; then
+      export LIB="${MSVC_ATL_LIB_WIN};${LIB}"
+      MSVC_CRT_ADDED="1"
+      echo "[run-dev-win] MSVC ATL/MFC lib dir added to LIB: $MSVC_ATL_LIB_WIN"
+    fi
+  fi
+  break
+done
+if [[ -z "$MSVC_CRT_ADDED" ]]; then
+  echo "[run-dev-win] WARNING: MSVC CRT dirs not auto-detected; compilation may fail" >&2
+fi
+
 echo "[run-dev-win] LIB = ${LIB:-<unset>}"
 echo "[run-dev-win] WindowsSdkDir = ${WindowsSdkDir:-<unset>}"
 echo "[run-dev-win] WindowsSDKVersion = ${WindowsSDKVersion:-<unset>}"
 
-# Pin the linker by absolute path — runs whether or not we just bootstrapped
+# Pin the linker by absolute path 閳?runs whether or not we just bootstrapped
 # the MSVC env. PATH ordering alone isn't reliable: the bash-side reorder
 # doesn't always survive into the Windows-side %PATH% that rustc sees when
 # it resolves `link.exe`, so it can still find Git's
@@ -270,11 +450,15 @@ echo "[run-dev-win] linker pinned: $msvc_link_win"
 # the Visual Studio generator, which produces .sln/.vcxproj files; if anything
 # downstream then invokes ninja (because CMAKE_MAKE_PROGRAM is set below),
 # you get the "ninja: error: loading 'build.ninja'" mismatch.
-export CMAKE_GENERATOR=Ninja
+# NOTE: Do NOT set CMAKE_GENERATOR=Ninja globally. CMake 4.x detects VS
+# installations (via vswhere / INCLUDE paths) and passes -DCMAKE_GENERATOR_INSTANCE
+# which the Ninja generator does not support. Let cmake-rs use its default
+# Visual Studio generator for whisper-rs-sys (the only cmake-rs consumer).
+# export CMAKE_GENERATOR=Ninja
 
 # CEF runtime lives under LOCALAPPDATA on Windows.
 # ensure-tauri-cli.sh stages it here; fall back to a default if unset.
-CEF_PATH="${CEF_PATH:-$(cygpath -u "$LOCALAPPDATA")/tauri-cef}"
+CEF_PATH="$(cygpath -u "${CEF_PATH:-$LOCALAPPDATA\tauri-cef}")"
 export CEF_PATH
 
 to_unix_path() {
@@ -295,7 +479,7 @@ find_winget_exe() {
   local candidate
   # Sort by version (lexicographic on directory name) and pick the newest.
   candidate="$(ls -d "$local_appdata_unix"/Microsoft/WinGet/Packages/${pkg_glob}_* 2>/dev/null \
-    | sort -V | tail -n1 || true)"
+    | sort | tail -n1 || true)"
   if [[ -n "$candidate" && -x "$candidate/$exe_name" ]]; then
     printf '%s\n' "$candidate/$exe_name"
     return 0
@@ -313,7 +497,7 @@ find_pnpm() {
     printf '%s\n' "$winget_pnpm"
     return 0
   fi
-  # npm-global install — `npm i -g pnpm` drops a shim under %APPDATA%\npm.
+  # npm-global install 閳?`npm i -g pnpm` drops a shim under %APPDATA%\npm.
   # The shim is a `.cmd` on Windows; bash invokes .cmd via the same path.
   local appdata_unix=""
   if [[ -n "${APPDATA:-}" ]]; then
@@ -346,7 +530,7 @@ find_pnpm() {
       fi
     done
   fi
-  # Chocolatey shim — same pattern as find_ninja above.
+  # Chocolatey shim 閳?same pattern as find_ninja above.
   for choco_pnpm in \
       "/c/ProgramData/chocolatey/bin/pnpm.cmd" \
       "/c/ProgramData/chocolatey/bin/pnpm.exe"; do
@@ -368,7 +552,7 @@ find_ninja() {
     printf '%s\n' "$winget_ninja"
     return 0
   fi
-  # Chocolatey shim — common on engineering desktops that pre-date WinGet.
+  # Chocolatey shim 閳?common on engineering desktops that pre-date WinGet.
   # `-f` rather than `-x` because MSYS leaves .cmd files unmarked-executable.
   for choco_ninja in \
       "/c/ProgramData/chocolatey/bin/ninja.exe" \
@@ -390,7 +574,7 @@ find_ninja() {
 
 # pnpm.cmd / the bare pnpm shim both ultimately `exec node ...`. When
 # PowerShell launches pnpm which launches bash.exe, the inherited PATH
-# does NOT reliably include Node.js — and vcvars wipes the rest. Probe
+# does NOT reliably include Node.js 閳?and vcvars wipes the rest. Probe
 # the common Windows install locations and prepend whatever we find so
 # downstream `exec node` calls in pnpm shims and Tauri scripts succeed.
 find_nodejs_dir() {
@@ -414,7 +598,7 @@ find_nodejs_dir() {
     nvm_root="$(to_unix_path "$LOCALAPPDATA" 2>/dev/null || true)/nvm"
     if [[ -d "$nvm_root" ]]; then
       local nvm_pick
-      nvm_pick="$(ls -d "$nvm_root"/v* 2>/dev/null | sort -V | tail -n1)"
+      nvm_pick="$(ls -d "$nvm_root"/v* 2>/dev/null | sort | tail -n1)"
       if [[ -n "$nvm_pick" && -f "$nvm_pick/node.exe" ]]; then
         printf '%s\n' "$nvm_pick"
         return 0
@@ -498,7 +682,7 @@ if [[ -z "$NINJA_EXE" ]]; then
 fi
 export CMAKE_MAKE_PROGRAM="$NINJA_EXE"
 
-CEF_RUNTIME_PATH="$(ls -d "$CEF_PATH"/*/cef_windows_x86_64 2>/dev/null | sort -Vr | head -n1 || true)"
+CEF_RUNTIME_PATH="$(ls -d "$CEF_PATH"/*/cef_windows_x86_64 2>/dev/null | /usr/bin/sort -r | /usr/bin/head -n1 || true)"
 if [[ -n "$CEF_RUNTIME_PATH" ]]; then
   export CEF_RUNTIME_PATH
 fi
@@ -509,14 +693,19 @@ if [[ -n "${CEF_RUNTIME_PATH:-}" ]]; then
 fi
 export PATH="$PATH_PREFIX:$PATH"
 
-"$PNPM_EXE" tauri:ensure
-"$PNPM_EXE" core:stage
+# Run ensure-tauri-cli.sh and core:stage directly via bash instead of
+# pnpm to avoid cmd.exe failing to find bash (pnpm -> cmd.exe -> bash = broken).
+# Use $BASH (the current interpreter) rather than bare `bash` because the
+# MSVC-captured PATH prepends /c/Windows/system32, which shadows MSYS2 tools
+# (sort, find, etc.) with Windows-native executables that speak different flags.
+"$BASH" "$REPO_ROOT/scripts/ensure-tauri-cli.sh"
+# core:stage is a no-op per package.json, skip it
 
-# ─────────────────────────────────────────────────────────────────────────────
+# 閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓
 # Stage the CEF runtime next to the dev OpenHuman.exe.
 #
 # `cargo tauri build` (release) copies CEF into the bundle automatically, but
-# `cargo tauri dev` doesn't — the dev .exe lands at <target>/debug/OpenHuman.exe
+# `cargo tauri dev` doesn't 閳?the dev .exe lands at <target>/debug/OpenHuman.exe
 # alone, and Windows can't find libcef.dll. The .exe panics during boot with
 # `cef::library_loader::LibraryLoader::new` errors (or just refuses to launch
 # with "libcef.dll not found"). Without this step every fresh contributor
@@ -525,7 +714,7 @@ export PATH="$PATH_PREFIX:$PATH"
 # We stage by copying (not symlinking) so the script runs without admin /
 # Developer-Mode privileges. `cp -ru` only copies entries newer than the
 # destination, so subsequent dev runs are essentially free.
-# ─────────────────────────────────────────────────────────────────────────────
+# 閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓閳光偓
 if [[ -n "${CEF_RUNTIME_PATH:-}" && -f "$CEF_RUNTIME_PATH/libcef.dll" ]]; then
   # The dev OpenHuman.exe is produced by the *Tauri shell* crate
   # (app/src-tauri/Cargo.toml), not the root core crate. When
@@ -543,14 +732,14 @@ if [[ -n "${CEF_RUNTIME_PATH:-}" && -f "$CEF_RUNTIME_PATH/libcef.dll" ]]; then
   mkdir -p "$CEF_STAGE_DIR"
   if [[ ! -f "$CEF_STAGE_DIR/libcef.dll" \
         || "$CEF_RUNTIME_PATH/libcef.dll" -nt "$CEF_STAGE_DIR/libcef.dll" ]]; then
-    echo "[run-dev-win] staging CEF runtime → $CEF_STAGE_DIR (first run only — copies ~270MB)"
+    echo "[run-dev-win] staging CEF runtime 閳?$CEF_STAGE_DIR (first run only 閳?copies ~270MB)"
     cp -ru "$CEF_RUNTIME_PATH"/. "$CEF_STAGE_DIR/"
     echo "[run-dev-win] CEF runtime staged"
   else
     echo "[run-dev-win] CEF runtime already staged at $CEF_STAGE_DIR (libcef.dll up to date)"
   fi
 else
-  echo "[run-dev-win] WARNING: CEF_RUNTIME_PATH not set or libcef.dll missing — the dev exe will fail to load" >&2
+  echo "[run-dev-win] WARNING: CEF_RUNTIME_PATH not set or libcef.dll missing 閳?the dev exe will fail to load" >&2
   echo "[run-dev-win] expected: $CEF_PATH/<version>/cef_windows_x86_64/libcef.dll" >&2
 fi
 
@@ -562,7 +751,7 @@ fi
 # hardcoded 1420 collision. Vite reads the same env var directly; the
 # tauri-cli inline override patches tauri.conf.json's `devUrl` so the
 # shell connects to the right Vite instance.
-# Validate OPENHUMAN_DEV_PORT before interpolating into JSON — a stray
+# Validate OPENHUMAN_DEV_PORT before interpolating into JSON 閳?a stray
 # space, alphabetic char, or out-of-range value would produce an invalid
 # devUrl and tauri would refuse to start (or worse, drift from Vite's
 # own numeric fallback). Trim whitespace, require pure digits in
@@ -576,9 +765,98 @@ else
   DEV_PORT=1420
 fi
 
-if (( DEV_PORT != 1420 )); then
-  echo "[run-dev-win] OPENHUMAN_DEV_PORT=$DEV_PORT — overriding tauri devUrl"
-  "$PNPM_EXE" tauri dev -c "{\"build\":{\"devUrl\":\"http://localhost:$DEV_PORT\"}}"
-else
-  "$PNPM_EXE" tauri dev
+# Deduplicate PATH so MSYS2's Windows-format conversion stays under the
+# 32767-char limit.  Duplicate entries come from the MSVC capture (which
+# already contains the full system PATH) plus the explicit Windows-PATH
+# append at the top of this script.  When MSYS2 converts an overlong PATH
+# child processes see a truncated value and lose tail entries like node.
+dedup_path() {
+  local out="$1"
+  local seen=":"
+  local item
+  local IFS=':'
+  for item in $2; do
+    [[ -z "$item" ]] && continue
+    # Normalize: strip trailing slashes so /c/foo and /c/foo/ count as same
+    item="${item%/}"
+    [[ -z "$item" ]] && continue
+    [[ "$seen" == *":${item}:"* ]] && continue
+    seen="${seen}${item}:"
+    if [[ -z "$out" ]]; then
+      out="$item"
+    else
+      out="${out}:${item}"
+    fi
+  done
+  printf '%s' "$out"
+}
+
+DEDUPED_PATH="$(dedup_path "" "$PATH")"
+echo "[run-dev-win] PATH entries: $(echo "$PATH" | tr ':' '\n' | wc -l) -> $(echo "$DEDUPED_PATH" | tr ':' '\n' | wc -l) after dedup"
+
+# Verify node is still reachable on the deduped PATH
+if ! PATH="$DEDUPED_PATH" command -v node >/dev/null 2>&1; then
+  echo "[run-dev-win] WARNING: node not on deduped PATH, adding explicitly" >&2
+  DEDUPED_PATH="/c/Program Files/nodejs:$DEDUPED_PATH"
 fi
+
+echo "[run-dev-win] OPENHUMAN_DEV_PORT=$DEV_PORT — overriding tauri devUrl"
+# Prevent STATUS_STACK_OVERFLOW (0xc00000fd) on Windows: the agent inference
+# call chain (agent_loop → tool_dispatch → subagent_runner → ...) needs a
+# larger-than-default thread stack.  Default on Windows is 1 MiB; 4 MiB gives
+# enough headroom for deep async call stacks in the embedded core server.
+export RUST_MIN_STACK=4194304
+
+# whisper-rs-sys CMake build: target the Professional VS installation.
+# CMake auto-detection (vswhere) may pick BuildTools instead of Professional,
+# and BuildTools' compiler fails the CMake test-compile step.
+#
+# Set VSINSTALLDIR so cmake picks up Professional (via the VS 2022 generator)
+# instead of auto-detecting BuildTools. Do NOT set CMAKE_GENERATOR_INSTANCE —
+# CMake 4.x rejects the Professional path as "not known to the VS Installer"
+# even though vswhere can enumerate it.
+#
+# Also unset CMAKE_MAKE_PROGRAM: if set to ninja (e.g. from a Python venv),
+# the VS generator tries to build .vcxproj files with ninja, which fails.
+  # Try BuildTools first -- it ships a newer MSVC toolchain (>=14.40) whose STL
+  # provides the __std_* vectorized-algorithm symbols that whisper.cpp needs.
+  # Fall back to Professional (older MSVC <=14.38) if BuildTools is absent.
+  VS_BASE="C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools"
+  VS_LABEL="BuildTools"
+  if [[ ! -d "$VS_BASE" ]]; then
+    VS_BASE="C:/Program Files/Microsoft Visual Studio/2022/Professional"
+    VS_LABEL="Professional"
+  fi
+  if [[ -d "$VS_BASE" ]]; then
+    echo "[run-dev-win] targeting VS $VS_LABEL: $VS_BASE"
+	export CMAKE_GENERATOR="Visual Studio 17 2022"
+  export CMAKE_CXX_FLAGS="-D_USE_STD_VECTOR_ALGORITHMS=0 ${CMAKE_CXX_FLAGS:-}"
+  VSINSTALLDIR_UNIX="$(cygpath -u "$VS_BASE")"
+  export VSINSTALLDIR="$VSINSTALLDIR_UNIX"
+  export VS170COMNTOOLS="$VSINSTALLDIR_UNIX/Common7/Tools/"
+  # Derive VCINSTALLDIR from the latest MSVC toolchain.
+  CL_TOOLS_DIR="$(ls -d "$VSINSTALLDIR_UNIX/VC/Tools/MSVC"/*/bin/Hostx64/x64 2>/dev/null | sort | tail -n1 || true)"
+  if [[ -n "$CL_TOOLS_DIR" ]]; then
+    VCINSTALLDIR_UNIX="$(dirname "$(dirname "$(dirname "$CL_TOOLS_DIR")")")"
+    export VCINSTALLDIR="$VCINSTALLDIR_UNIX"
+    export PATH="$CL_TOOLS_DIR:$PATH"
+    echo "[run-dev-win] $VS_LABEL cl.exe at $CL_TOOLS_DIR"
+    # Pin Cargo linker to BuildTools too -- the earlier linker pin in
+    # the script picked up Professional's link.exe via command -v cl.exe,
+    # but whisper.obj was compiled against BuildTools' STL headers.
+    BT_LINK_UNIX="$CL_TOOLS_DIR/link.exe"
+    if [[ -x "$BT_LINK_UNIX" ]]; then
+      BT_LINK_WIN="$(cygpath -w "$BT_LINK_UNIX")"
+      export CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER="$BT_LINK_WIN"
+      export PATH="$CL_TOOLS_DIR:$PATH"
+      echo "[run-dev-win] linker overridden to $VS_LABEL: $BT_LINK_WIN"
+    # whisper-rs-sys uses /MT (static CRT) but Rust defaults to /MD
+    # (dynamic msvcrt). The __std_* vectorized-STL symbols exist only in
+    # libcpmt.lib (static C++ lib), not in msvcprt.lib. Add it explicitly.
+    export RUSTFLAGS="-Clink-arg=/DEFAULTLIB:libcpmt.lib ${RUSTFLAGS:-}"
+    fi
+  fi
+fi
+unset CMAKE_MAKE_PROGRAM
+
+PATH="$DEDUPED_PATH" "$PNPM_EXE" tauri dev -c "{\"build\":{\"devUrl\":\"http://localhost:$DEV_PORT\"}}"

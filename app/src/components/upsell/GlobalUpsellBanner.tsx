@@ -1,5 +1,5 @@
 import { useUsageState } from '../../hooks/useUsageState';
-import { BILLING_DASHBOARD_URL } from '../../utils/links';
+import { DEEPSEEK_TOPUP_URL } from '../../utils/links';
 import { openUrl } from '../../utils/openUrl';
 import UpsellBanner from './UpsellBanner';
 
@@ -19,7 +19,7 @@ export default function GlobalUpsellBanner() {
           ctaLabel="Upgrade"
           rounded={false}
           onCtaClick={() => {
-            void openUrl(BILLING_DASHBOARD_URL);
+            void openUrl(DEEPSEEK_TOPUP_URL);
           }}
         />
       </div>
@@ -37,7 +37,7 @@ export default function GlobalUpsellBanner() {
           ctaLabel="Upgrade"
           rounded={false}
           onCtaClick={() => {
-            void openUrl(BILLING_DASHBOARD_URL);
+            void openUrl(DEEPSEEK_TOPUP_URL);
           }}
         />
       </div>

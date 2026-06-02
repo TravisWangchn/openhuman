@@ -182,8 +182,6 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
         .extend(crate::openhuman::redirect_links::all_redirect_links_registered_controllers());
     // Referral and growth tracking
     controllers.extend(crate::openhuman::referral::all_referral_registered_controllers());
-    // Billing and subscription management
-    controllers.extend(crate::openhuman::billing::all_billing_registered_controllers());
     // Team and role management
     controllers.extend(crate::openhuman::team::all_team_registered_controllers());
     // E2E test support — `openhuman.test_reset` wipes sidecar state in-place.
@@ -228,6 +226,10 @@ fn build_registered_controllers() -> Vec<RegisteredController> {
     // Structured WhatsApp Web data — agent-facing read-only controllers (list/search).
     // The write-path ingest controller is registered separately in build_internal_only_controllers.
     controllers.extend(crate::openhuman::whatsapp_data::all_whatsapp_data_registered_controllers());
+    // Billing — subscription, payment, credit top-up via hosted backend
+    controllers.extend(crate::openhuman::billing::all_billing_registered_controllers());
+    // License — OpenHuman-ZN commercial activation and quota enforcement
+    controllers.extend(crate::openhuman::license::all_license_registered_controllers());
     controllers
 }
 
@@ -289,7 +291,6 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::memory::all_memory_sync_status_controller_schemas());
     schemas.extend(crate::openhuman::redirect_links::all_redirect_links_controller_schemas());
     schemas.extend(crate::openhuman::referral::all_referral_controller_schemas());
-    schemas.extend(crate::openhuman::billing::all_billing_controller_schemas());
     schemas.extend(crate::openhuman::team::all_team_controller_schemas());
     #[cfg(feature = "e2e-test-support")]
     schemas.extend(crate::openhuman::test_support::all_test_support_controller_schemas());
@@ -316,6 +317,10 @@ fn build_declared_controller_schemas() -> Vec<ControllerSchema> {
     schemas.extend(crate::openhuman::meet_agent::all_meet_agent_controller_schemas());
     // Structured WhatsApp Web data — local SQLite store, agent-queryable
     schemas.extend(crate::openhuman::whatsapp_data::all_whatsapp_data_controller_schemas());
+    // Billing — subscription plan, payment links, credit top-up
+    schemas.extend(crate::openhuman::billing::all_billing_controller_schemas());
+    // License — OpenHuman-ZN commercial activation and quota enforcement
+    schemas.extend(crate::openhuman::license::all_license_controller_schemas());
     schemas
 }
 
@@ -401,6 +406,9 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         }
         "learning" => Some(
             "User context enrichment — LinkedIn profile scraping and onboarding intelligence.",
+        ),
+        "license" => Some(
+            "OpenHuman-ZN commercial license activation, status, quota enforcement, and device binding.",
         ),
         "people" => {
             Some("Contact resolution and recency × frequency × reciprocity × depth scoring.")

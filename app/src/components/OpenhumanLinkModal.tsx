@@ -29,7 +29,7 @@ import {
   type AccountStatus,
   PROVIDERS,
 } from '../types/accounts';
-import { BILLING_DASHBOARD_URL } from '../utils/links';
+import { DEEPSEEK_TOPUP_URL } from '../utils/links';
 import { openUrl } from '../utils/openUrl';
 import { ProviderIcon } from './accounts/providerIcons';
 import ChannelSetupModal from './channels/ChannelSetupModal';
@@ -148,7 +148,7 @@ function titleForPath(path: string): string {
     case 'settings/notifications':
       return 'Allow notifications';
     case 'settings/billing':
-      return 'Billing & credits';
+      return 'DeepSeek API Credits';
     case 'settings/messaging':
       return 'Connect a chat channel';
     case 'community/discord':
@@ -314,7 +314,7 @@ const BillingBody = ({ close }: { close: () => void }) => {
       <button
         type="button"
         onClick={() => {
-          void openUrl(BILLING_DASHBOARD_URL).catch(() => {});
+          void openUrl(DEEPSEEK_TOPUP_URL).catch(() => {});
         }}
         className="w-full rounded-xl bg-primary-500 text-white text-sm font-medium py-2.5 hover:bg-primary-600 transition-colors">
         Open dashboard in browser

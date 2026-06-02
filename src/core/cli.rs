@@ -280,6 +280,36 @@ fn run_server_command(args: &[String]) -> Result<()> {
         .enable_all()
         .build()?;
     rt.block_on(async {
+        // OpenHuman-ZN: try loading config early so GATE-2 can check
+        // china_models API keys in addition to env vars.
+        let china_models = crate::openhuman::config::ops::load_config_with_timeout()
+            .await
+            .ok()
+            .and_then(|c| c.china_models);
+        // OpenHuman-ZN: GATE闸机 — run startup self-checks before serving
+        let gate_status =
+            crate::openhuman::doctor::gate::run_gate_checks(china_models.as_ref()).await;
+        if !gate_status.all_passed {
+            log::warn!(
+                "[cli] GATE checks: {}/{} passed — safe mode may be active",
+                gate_status.passed_count,
+                gate_status.total_count
+            );
+            eprintln!("[GATE] {}", gate_status.summary());
+        } else {
+            log::info!(
+                "[cli] GATE checks: all {}/{} passed",
+                gate_status.passed_count,
+                gate_status.total_count
+            );
+        }
+
+        // OpenHuman-ZN: initialise license caches so get_license_info()
+        // returns persisted state immediately on first RPC call.
+        if let Err(e) = crate::openhuman::license::init_caches() {
+            log::warn!("[cli] license cache init failed: {e}");
+        }
+
         crate::core::jsonrpc::run_server(host.as_deref(), port, socketio_enabled).await
     })?;
     Ok(())

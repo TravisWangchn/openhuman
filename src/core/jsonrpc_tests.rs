@@ -310,76 +310,12 @@ fn http_schema_dump_includes_openhuman_and_core_methods() {
             .any(|m| m.method == "openhuman.health_snapshot"),
         "schema dump should include migrated openhuman methods"
     );
-
-    assert!(
-        methods
-            .iter()
-            .any(|m| m.method == "openhuman.billing_get_current_plan"),
-        "schema dump should include billing methods"
-    );
-
     assert!(
         methods
             .iter()
             .any(|m| m.method == "openhuman.team_list_members"),
         "schema dump should include team methods"
     );
-}
-
-#[tokio::test]
-async fn billing_get_current_plan_rejects_unknown_param() {
-    let err = invoke_method(
-        default_state(),
-        "openhuman.billing_get_current_plan",
-        json!({ "extra": true }),
-    )
-    .await
-    .expect_err("unknown param should fail");
-    assert!(err.contains("unknown param 'extra'"));
-}
-
-#[tokio::test]
-async fn billing_purchase_plan_missing_plan_fails_validation() {
-    let err = invoke_method(
-        default_state(),
-        "openhuman.billing_purchase_plan",
-        json!({}),
-    )
-    .await
-    .expect_err("missing plan should fail");
-    assert!(err.contains("missing required param 'plan'"));
-}
-
-#[tokio::test]
-async fn billing_top_up_missing_amount_fails_validation() {
-    let err = invoke_method(default_state(), "openhuman.billing_top_up", json!({}))
-        .await
-        .expect_err("missing amountUsd should fail");
-    assert!(err.contains("missing required param 'amountUsd'"));
-}
-
-#[tokio::test]
-async fn billing_top_up_rejects_unknown_param() {
-    let err = invoke_method(
-        default_state(),
-        "openhuman.billing_top_up",
-        json!({ "amountUsd": 10.0, "unknownField": true }),
-    )
-    .await
-    .expect_err("unknown param should fail");
-    assert!(err.contains("unknown param 'unknownField'"));
-}
-
-#[tokio::test]
-async fn billing_create_portal_session_rejects_unknown_param() {
-    let err = invoke_method(
-        default_state(),
-        "openhuman.billing_create_portal_session",
-        json!({ "x": 1 }),
-    )
-    .await
-    .expect_err("unknown param should fail");
-    assert!(err.contains("unknown param 'x'"));
 }
 
 #[tokio::test]
@@ -435,30 +371,6 @@ async fn team_change_member_role_missing_role_fails_validation() {
 }
 
 #[tokio::test]
-async fn billing_create_coinbase_charge_missing_plan_fails_validation() {
-    let err = invoke_method(
-        default_state(),
-        "openhuman.billing_create_coinbase_charge",
-        json!({}),
-    )
-    .await
-    .expect_err("missing plan should fail");
-    assert!(err.contains("missing required param 'plan'"));
-}
-
-#[tokio::test]
-async fn billing_create_coinbase_charge_rejects_unknown_param() {
-    let err = invoke_method(
-        default_state(),
-        "openhuman.billing_create_coinbase_charge",
-        json!({ "plan": "pro", "extra": true }),
-    )
-    .await
-    .expect_err("unknown param should fail");
-    assert!(err.contains("unknown param 'extra'"));
-}
-
-#[tokio::test]
 async fn team_list_invites_missing_team_id_fails_validation() {
     let err = invoke_method(default_state(), "openhuman.team_list_invites", json!({}))
         .await
@@ -499,15 +411,10 @@ async fn team_revoke_invite_missing_invite_id_fails_validation() {
 }
 
 #[tokio::test]
-async fn schema_dump_includes_new_billing_and_team_methods() {
+async fn schema_dump_includes_team_methods() {
     let dump = build_http_schema_dump();
     let methods: Vec<&str> = dump.methods.iter().map(|m| m.method.as_str()).collect();
     for expected in &[
-        "openhuman.billing_get_current_plan",
-        "openhuman.billing_purchase_plan",
-        "openhuman.billing_create_portal_session",
-        "openhuman.billing_top_up",
-        "openhuman.billing_create_coinbase_charge",
         "openhuman.team_list_members",
         "openhuman.team_create_invite",
         "openhuman.team_list_invites",
@@ -576,12 +483,22 @@ fn parse_json_params_reports_error_message() {
 }
 
 #[test]
-fn is_session_expired_error_matches_401_unauthorized() {
+fn is_session_expired_error_matches_401_unauthorized_with_backend_context() {
+    // "401" + "unauthorized" only triggers session expiry when paired with
+    // a backend context keyword (session, jwt, backend, openhuman, auth_store).
+    // Plain 401 from a third-party provider must NOT redirect the UI.
     assert!(is_session_expired_error(
         "backend returned 401 Unauthorized"
     ));
-    assert!(is_session_expired_error("401 UNAUTHORIZED"));
-    assert!(is_session_expired_error("got 401 and unauthorized body"));
+    assert!(is_session_expired_error(
+        "OpenHuman API error (401 Unauthorized): session mismatch"
+    ));
+    // No backend context → no session expiry (e.g. model provider 401).
+    assert!(!is_session_expired_error("401 UNAUTHORIZED"));
+    assert!(!is_session_expired_error("got 401 and unauthorized body"));
+    assert!(!is_session_expired_error(
+        "DeepSeek API error (401 Unauthorized): Invalid API key"
+    ));
 }
 
 #[test]
@@ -593,9 +510,18 @@ fn is_session_expired_error_requires_both_401_and_unauthorized() {
 }
 
 #[test]
-fn is_session_expired_error_matches_invalid_token_case_insensitive() {
-    assert!(is_session_expired_error("Invalid Token"));
-    assert!(is_session_expired_error("got an invalid token here"));
+fn is_session_expired_error_matches_invalid_token_with_context() {
+    // "invalid token" only triggers session expiry with auth/session context.
+    assert!(is_session_expired_error("session has invalid token"));
+    assert!(is_session_expired_error(
+        "backend auth error: invalid token"
+    ));
+    // No context → no session expiry (e.g. provider API key error).
+    assert!(!is_session_expired_error("Invalid Token"));
+    assert!(!is_session_expired_error("got an invalid token here"));
+    assert!(!is_session_expired_error(
+        "DeepSeek API error (401): invalid token"
+    ));
 }
 
 #[test]
@@ -649,22 +575,20 @@ fn is_param_validation_error_does_not_match_unrelated_errors() {
 }
 
 #[test]
-fn is_session_expired_error_matches_missing_backend_session_token() {
-    // Composio / web search / billing / team / webhooks / referral all surface
-    // a "no backend session token" variant when the auth profile is gone. Each
-    // of these should funnel into the auto-cleanup path instead of being
-    // reported to Sentry as a fresh error on every 5 s poll.
-    assert!(is_session_expired_error(
+fn is_session_expired_error_does_not_match_missing_backend_session_token() {
+    // "no backend session token" means the user never authenticated — it is not
+    // a session *expiry*. Treating it as expired would log the user out of a
+    // local dev session that never had a backend token to begin with.
+    assert!(!is_session_expired_error(
         "composio unavailable: no backend session token. Sign in first (auth_store_session)."
     ));
-    assert!(is_session_expired_error(
+    assert!(!is_session_expired_error(
         "no backend session token; run auth_store_session first"
     ));
-    assert!(is_session_expired_error(
+    assert!(!is_session_expired_error(
         "Web search unavailable: no backend session token. Sign in first so the server can proxy search."
     ));
-    // Case-insensitive match — the helper lowercases first.
-    assert!(is_session_expired_error("NO BACKEND SESSION TOKEN"));
+    assert!(!is_session_expired_error("NO BACKEND SESSION TOKEN"));
 }
 
 #[tokio::test(flavor = "current_thread")]

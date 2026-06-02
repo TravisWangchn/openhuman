@@ -79,7 +79,7 @@ export const TOOL_CATALOG: ToolDefinition[] = [
     displayName: 'Open Browser',
     description: 'Open URLs in your web browser.',
     category: 'Web',
-    defaultEnabled: false,
+    defaultEnabled: true,
     rustToolNames: ['browser_open'],
   },
   {
@@ -95,7 +95,7 @@ export const TOOL_CATALOG: ToolDefinition[] = [
     displayName: 'HTTP Requests',
     description: 'Make HTTP/HTTPS requests to APIs.',
     category: 'Web',
-    defaultEnabled: false,
+    defaultEnabled: true,
     rustToolNames: ['http_request'],
   },
   {
